@@ -1,0 +1,373 @@
+{
+  "schema_version": "history.reuse-evaluation.v1",
+  "seed": 20260922,
+  "frozen_before_implementation": "2026-09-22",
+  "message_index_base": 0,
+  "thresholds": {
+    "positive_hit_at_5": 0.8,
+    "negative_false_matches": 0,
+    "http_p95_ms": 1000
+  },
+  "projects": [
+    "/synthetic/alpha/repo",
+    "/synthetic/beta/repo",
+    "/synthetic/gamma/console"
+  ],
+  "sessions": [
+    {
+      "source": "codex",
+      "id": "shared-repair-01",
+      "project": 0,
+      "evidence": [
+        [
+          4,
+          "SQLite 写入失败：database is locked；使用短事务并等待后台 reader 释放连接。"
+        ],
+        [
+          11,
+          "修复 src/storage/cache.py 的缓存键碰撞；pytest tests/test_cache.py 通过，历史验证仅适用于这次运行。"
+        ]
+      ]
+    },
+    {
+      "source": "claude",
+      "id": "shared-repair-01",
+      "project": 0,
+      "evidence": [
+        [
+          4,
+          "中文搜索索引错误：分词器丢掉中文字符，标题搜索能命中但正文不能命中。"
+        ],
+        [
+          11,
+          "修改 static/search.js 保留路径分隔符，查询 src/ui/list.ts 时按原始路径查找。"
+        ]
+      ]
+    },
+    {
+      "source": "codex",
+      "id": "reuse-alpha-02",
+      "project": 0,
+      "evidence": [
+        [
+          4,
+          "回滚迁移失败：no such column: parser_version，旧缓存需要幂等迁移后才能查询。"
+        ],
+        [
+          11,
+          "补充 tests/test_reader.py 的跨页验证；索引变化返回 revision_changed，旧页不能继续拼接。"
+        ]
+      ]
+    },
+    {
+      "source": "claude",
+      "id": "reuse-alpha-03",
+      "project": 0,
+      "evidence": [
+        [
+          4,
+          "权限诊断发现 Permission denied: /synthetic/logs/session.jsonl；未读到原始日志，不应显示零会话成功。"
+        ],
+        [
+          11,
+          "秘密遮盖仅适用于导出：authorization bearer token 必须替换，原始记录保持只读。"
+        ]
+      ]
+    },
+    {
+      "source": "codex",
+      "id": "reuse-beta-01",
+      "project": 1,
+      "evidence": [
+        [
+          4,
+          "同名项目隔离：/synthetic/beta/repo 与 /synthetic/alpha/repo 不能按照 basename 合并。"
+        ],
+        [
+          11,
+          "src/a.py 的 apply_patch failed，写入没有完成；src/a_backup.py 的成功与它无关。"
+        ]
+      ]
+    },
+    {
+      "source": "claude",
+      "id": "reuse-beta-02",
+      "project": 1,
+      "evidence": [
+        [
+          4,
+          "定位 ECONNREFUSED 127.0.0.1:8787：服务器已退出，重试按钮应清空旧卡片并显示失联。"
+        ],
+        [
+          11,
+          "长中文标题换行完成；420px 没有横向溢出，Tab 和 Enter 可以打开会话。"
+        ]
+      ]
+    },
+    {
+      "source": "codex",
+      "id": "reuse-beta-03",
+      "project": 1,
+      "evidence": [
+        [
+          4,
+          "旧失败仍未解决：测试超时 TimeoutError: worker did not exit；后续文档构建成功不能消除该阻塞。"
+        ],
+        [
+          11,
+          "docs/session-plans/007.md 记录恢复入口；计划文件是当前观察，不等于历史会话曾读过它。"
+        ]
+      ]
+    },
+    {
+      "source": "claude",
+      "id": "reuse-gamma-01",
+      "project": 2,
+      "evidence": [
+        [
+          4,
+          "source_changed_since_index：日志文件被同路径替换，旧引用必须失效，刷新之后才可重新选取。"
+        ],
+        [
+          11,
+          "诊断预览不导出 /home/synthetic-user/private/token.env 的内容；只报告错误码与脱敏统计。"
+        ]
+      ]
+    },
+    {
+      "source": "codex",
+      "id": "reuse-gamma-02",
+      "project": 2,
+      "evidence": [
+        [
+          4,
+          "重复记录去重按 message.id，不能把 Claude 流式 usage 的每次更新全部求和。"
+        ],
+        [
+          11,
+          "后台任务恢复：checkpoint 保存页游标，但 resumed 不代表任务 completed。"
+        ]
+      ]
+    },
+    {
+      "source": "claude",
+      "id": "reuse-gamma-03",
+      "project": 2,
+      "evidence": [
+        [
+          4,
+          "合并简报时必须保留低分失败会话；highlights 去重不能丢掉 blocked 与 deliverables。"
+        ],
+        [
+          11,
+          "未知重命名不能靠同名推断；没有结构化 patch 时显示 diff unavailable，并链接原文证据。"
+        ]
+      ]
+    }
+  ],
+  "queries": [
+    {
+      "id": "Q01",
+      "q": "database is locked",
+      "source": "codex",
+      "session": "shared-repair-01",
+      "message_index": 4,
+      "kind": "error_phrase"
+    },
+    {
+      "id": "Q02",
+      "q": "src/storage/cache.py",
+      "source": "codex",
+      "session": "shared-repair-01",
+      "message_index": 11,
+      "kind": "path"
+    },
+    {
+      "id": "Q03",
+      "q": "中文搜索索引错误",
+      "source": "claude",
+      "session": "shared-repair-01",
+      "message_index": 4,
+      "kind": "chinese"
+    },
+    {
+      "id": "Q04",
+      "q": "src/ui/list.ts",
+      "source": "claude",
+      "session": "shared-repair-01",
+      "message_index": 11,
+      "kind": "path"
+    },
+    {
+      "id": "Q05",
+      "q": "no such column: parser_version",
+      "source": "codex",
+      "session": "reuse-alpha-02",
+      "message_index": 4,
+      "kind": "error_phrase"
+    },
+    {
+      "id": "Q06",
+      "q": "tests/test_reader.py",
+      "source": "codex",
+      "session": "reuse-alpha-02",
+      "message_index": 11,
+      "kind": "path"
+    },
+    {
+      "id": "Q07",
+      "q": "Permission denied",
+      "source": "claude",
+      "session": "reuse-alpha-03",
+      "message_index": 4,
+      "kind": "error_phrase"
+    },
+    {
+      "id": "Q08",
+      "q": "authorization bearer token",
+      "source": "claude",
+      "session": "reuse-alpha-03",
+      "message_index": 11,
+      "kind": "phrase"
+    },
+    {
+      "id": "Q09",
+      "q": "同名项目隔离",
+      "source": "codex",
+      "session": "reuse-beta-01",
+      "message_index": 4,
+      "kind": "chinese"
+    },
+    {
+      "id": "Q10",
+      "q": "apply_patch failed",
+      "source": "codex",
+      "session": "reuse-beta-01",
+      "message_index": 11,
+      "kind": "failure"
+    },
+    {
+      "id": "Q11",
+      "q": "ECONNREFUSED 127.0.0.1:8787",
+      "source": "claude",
+      "session": "reuse-beta-02",
+      "message_index": 4,
+      "kind": "error_phrase"
+    },
+    {
+      "id": "Q12",
+      "q": "长中文标题换行",
+      "source": "claude",
+      "session": "reuse-beta-02",
+      "message_index": 11,
+      "kind": "chinese"
+    },
+    {
+      "id": "Q13",
+      "q": "TimeoutError: worker did not exit",
+      "source": "codex",
+      "session": "reuse-beta-03",
+      "message_index": 4,
+      "kind": "failure"
+    },
+    {
+      "id": "Q14",
+      "q": "docs/session-plans/007.md",
+      "source": "codex",
+      "session": "reuse-beta-03",
+      "message_index": 11,
+      "kind": "path"
+    },
+    {
+      "id": "Q15",
+      "q": "source_changed_since_index",
+      "source": "claude",
+      "session": "reuse-gamma-01",
+      "message_index": 4,
+      "kind": "error_phrase"
+    },
+    {
+      "id": "Q16",
+      "q": "脱敏统计",
+      "source": "claude",
+      "session": "reuse-gamma-01",
+      "message_index": 11,
+      "kind": "chinese"
+    },
+    {
+      "id": "Q17",
+      "q": "令牌消耗被算多了怎么修",
+      "source": "codex",
+      "session": "reuse-gamma-02",
+      "message_index": 4,
+      "kind": "paraphrase"
+    },
+    {
+      "id": "Q18",
+      "q": "进程中断后从哪里接着干",
+      "source": "codex",
+      "session": "reuse-gamma-02",
+      "message_index": 11,
+      "kind": "paraphrase"
+    },
+    {
+      "id": "Q19",
+      "q": "日报隐藏了没成功的尝试",
+      "source": "claude",
+      "session": "reuse-gamma-03",
+      "message_index": 4,
+      "kind": "paraphrase"
+    },
+    {
+      "id": "Q20",
+      "q": "文件挪走了如何确认新名字",
+      "source": "claude",
+      "session": "reuse-gamma-03",
+      "message_index": 11,
+      "kind": "paraphrase"
+    }
+  ],
+  "negatives": [
+    {
+      "id": "N01",
+      "q": "ZXQ_NONEXISTENT_20260922"
+    },
+    {
+      "id": "N02",
+      "q": "src/quantum/teleport.rs"
+    },
+    {
+      "id": "N03",
+      "q": "火星探测车光谱标定"
+    },
+    {
+      "id": "N04",
+      "q": "certificate dragonfruit expired"
+    }
+  ],
+  "contract_cases": [
+    "same_session_id_different_source",
+    "same_basename_different_project",
+    "one_source_failed",
+    "revision_changed_between_pages",
+    "no_duplicate_or_omitted_pages"
+  ],
+  "user_tasks": [
+    "启动并理解来源状态",
+    "跨来源找一次修复",
+    "还原项目最近工作",
+    "追溯指定文件",
+    "选择证据导出交接"
+  ],
+  "human_timing": "not_run; requires an independent Linux participant",
+  "system": "linux",
+  "stores": {
+    "codex": {
+      "relative_root": "codex/sessions"
+    },
+    "claude": {
+      "relative_root": "claude/projects"
+    }
+  },
+  "store_id_contract": "sha256 of JSON [system, source, resolved synthetic source root]; resolve at run time, not a platform label"
+}

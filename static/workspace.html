@@ -3,21 +3,78 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>继续工作 · History Viewer</title>
+  <title>找回历史证据 · History Viewer</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/workspace.css">
 </head>
 <body class="workspace-page">
   <main class="workspace-shell">
     <header class="workspace-header">
-      <div><h1>继续工作</h1><p class="muted">查看历史进展、成果与下一步，沿证据继续工作。</p></div>
-      <nav aria-label="辅助功能"><button id="workspaceRetry" class="btn" type="button">重新读取</button> <a class="btn" href="/history">搜索历史与设置</a></nav>
+      <div><h1>找回历史证据</h1><p class="muted">搜索过去的处理过程，核对原文，把选中的证据带回工作。</p></div>
+      <a class="btn" href="/history">完整历史与设置</a>
     </header>
-    <p id="workspaceStatus" class="muted" role="status" aria-live="polite">正在读取工作记录…</p>
-    <div id="sourceStatus" role="status" aria-live="polite"></div>
-    <section aria-labelledby="attentionTitle"><h2 id="attentionTitle">需要核对</h2><div id="attentionList"></div></section>
-    <section aria-labelledby="resultsTitle"><h2 id="resultsTitle">近期完成记录</h2><div id="workList"></div></section>
-    <p class="workspace-note muted">这是历史证据快照。CM 未连接：当前执行者、任务实时状态和待审批决定均为 unknown；续接前仍需检查当前代码与项目计划。</p>
+    <p id="workspaceStatus" class="muted" role="status" aria-live="polite">正在检查本地来源…</p>
+    <p id="demoNotice" class="work-warning" hidden>演示数据：这些记录用于体验，不代表你的真实工作。可输入关键词搜索，或选择“按项目继续”。</p>
+    <nav class="workspace-tabs" role="tablist" aria-label="查找方式">
+      <button id="searchTab" type="button" class="tab active" role="tab" aria-selected="true" aria-controls="searchView">搜索历史</button>
+      <button id="projectsTab" type="button" class="tab" role="tab" aria-selected="false" aria-controls="projectsView" tabindex="-1">按项目继续</button>
+    </nav>
+    <div class="reuse-layout">
+      <div class="reuse-main">
+        <section id="searchView" role="tabpanel" aria-labelledby="searchTab">
+          <form id="reuseSearchForm" class="reuse-search-form">
+            <label for="reuseQuery">记得的关键词、报错或文件名</label>
+            <div class="search-query-row"><input id="reuseQuery" type="search" placeholder="例如：sqlite locked 或 parser.py" autocomplete="off" required><button type="submit" class="btn primary">搜索</button></div>
+            <div class="search-filters">
+              <label>来源<select id="reuseSource"><option value="">全部来源</option></select></label>
+              <label class="project-filter">项目路径<input id="reuseProject" type="text" placeholder="全部项目" autocomplete="off"></label>
+              <label>开始日期<input id="reuseStart" type="date"></label>
+              <label>结束日期<input id="reuseEnd" type="date"></label>
+            </div>
+          </form>
+          <p id="searchStatus" class="result-status muted" role="status" aria-live="polite">不必先记得使用了哪个 Agent。输入关键词搜索全部来源。</p>
+          <div id="searchWarnings" class="result-warnings"></div>
+          <div id="searchResults" class="reuse-results"></div>
+          <button id="searchMore" type="button" class="btn more-button" hidden>加载更多结果</button>
+        </section>
+        <section id="projectsView" role="tabpanel" aria-labelledby="projectsTab" hidden>
+          <div class="section-toolbar"><h2 id="projectsTitle">选择项目</h2><button id="projectsRetry" type="button" class="btn small">重新读取</button></div>
+          <p id="projectsStatus" class="muted" role="status" aria-live="polite"></p>
+          <div id="projectsWarnings" class="result-warnings"></div>
+          <div id="projectList" class="project-list"></div>
+          <button id="projectsMore" type="button" class="btn more-button" hidden>加载更多项目</button>
+          <section id="timelineSection" class="timeline-section" aria-labelledby="timelineTitle" hidden>
+            <h2 id="timelineTitle">项目历史</h2>
+            <form id="timelineFilter" class="timeline-filter"><label for="timelineFile">文件路径筛选</label><div class="search-query-row"><input id="timelineFile" type="text" placeholder="例如：src/parser.py" autocomplete="off"><button type="submit" class="btn">筛选</button><button id="timelineClear" type="button" class="btn">清除</button></div></form>
+            <p id="timelineStatus" class="muted" role="status" aria-live="polite"></p>
+            <div id="timelineWarnings" class="result-warnings"></div>
+            <div id="timelineResults"></div>
+            <button id="timelineMore" type="button" class="btn more-button" hidden>加载更多会话</button>
+          </section>
+        </section>
+      </div>
+      <aside class="selection-panel" aria-labelledby="selectionTitle">
+        <div class="section-toolbar"><h2 id="selectionTitle">交接证据 <span id="selectionCount">0 / 5</span></h2><button id="selectionClear" type="button" class="btn small" disabled>清空</button></div>
+        <p class="muted">从会话中选择证据，核对预览后复制或下载。最多 5 条。</p>
+        <div id="selectionList"></div>
+        <button id="selectionPreview" type="button" class="btn" disabled>生成交接预览</button>
+        <p id="selectionStatus" class="muted" role="status" aria-live="polite"></p>
+        <section id="selectionExport" hidden aria-label="交接预览">
+          <p class="muted">仅供上下文参考，不代表当前代码已验证或授予执行权限。</p>
+          <pre id="selectionMarkdown" tabindex="0" aria-label="交接 Markdown 预览"></pre>
+          <div class="export-actions"><button id="selectionCopy" type="button" class="btn small">复制 Markdown</button><button id="selectionDownloadMd" type="button" class="btn small">下载 .md</button><button id="selectionDownloadJson" type="button" class="btn small">下载 .json</button></div>
+        </section>
+      </aside>
+    </div>
+    <details id="sourcesDetails" class="sources-details">
+      <summary>本地来源与诊断</summary>
+      <div class="section-toolbar"><p class="muted">查看来源状态，按需刷新已配置的索引。</p><button id="workspaceRetry" type="button" class="btn small">重新检查</button></div>
+      <div id="sourceStatus"></div>
+      <details class="demo-help"><summary>先用演示数据体验</summary><p>在终端运行 <code>python3 app.py --demo</code>，打开命令显示的本地地址。演示使用独立缓存，不读取真实历史。</p><p class="muted">切换到真实来源需重新启动应用；此页面不会扫描你输入的新路径。</p></details>
+      <button id="diagnosticPreviewBtn" type="button" class="btn small" disabled aria-expanded="false" aria-controls="diagnosticPreview">预览脱敏诊断</button>
+      <section id="diagnosticPreview" hidden><pre id="diagnosticText" tabindex="0" aria-label="脱敏诊断预览"></pre><button id="diagnosticDownload" type="button" class="btn small">下载诊断 .json</button></section>
+    </details>
+    <p class="workspace-note muted">所有结果来自本机历史。历史自报完成、旧验证记录和当前成果是不同事实；继续工作前请核对代码与项目计划。</p>
   </main>
   <script type="module" src="/workspace.js"></script>
 </body>

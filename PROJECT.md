@@ -42,10 +42,11 @@ Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56e
 
 ## Current Priority
 
-用户指定专注 History Viewer、以 Linux 为主。独立交付计划 HV-independent-linux-v2 已完成全部 5 个阶段并发布 v1.2.0；当前无待执行项，后续依据新的具体使用反馈另立任务。不使用 Goal 或定时续跑。
+用户指定专注 History Viewer、以 Linux 为主，并授权一次性完成 [历史找回与复用计划](plans/history-reuse-product/task_plan.md)。五项增量已实现，当前收口候选 `1.3.0-rc.1` 的自动验收、浏览器验证与离线试用包。U1 按用户回复“稍后安排，U1 保留待试用”保持 pending；不以工程交付替代独立用户体验验收。v1.2.0 仍是既有稳定发行，不使用 Goal 或定时续跑。
 
 ## Knowledge Map
 
+- Current product candidate and pending U1 → [plans/history-reuse-product/](plans/history-reuse-product/)
 - Completed Linux delivery plan → [plans/bounded-delivery/](plans/bounded-delivery/)
 - Earlier Agent handoff implementation and partial evidence → [plans/agent-handoff-service/](plans/agent-handoff-service/)
 - Dated release alignment → [plans/release-alignment/](plans/release-alignment/)
@@ -61,4 +62,4 @@ Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56e
 
 ## Approved next direction
 
-本项目已自行验收、发布并完成 Linux 本机安装；冻结分母与证据以 [bounded-delivery](plans/bounded-delivery/task_plan.md) 为准，5/5 complete。既有主工作区和直接 push 授权保留，不强制另建 worktree/PR。
+已交付 v1.2.0 的证据以 [bounded-delivery](plans/bounded-delivery/task_plan.md) 为准，5/5 complete。本轮 history-reuse-product 的实现和工程验收已授权，U1 人员由用户稍后安排；候选包保留本地，不自动发布稳定版或邀请试用。既有主工作区和直接 push 约定保留，不强制另建 worktree/PR。

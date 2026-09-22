@@ -1,0 +1,97 @@
+{
+  "scope": "Synthetic Linux machine acceptance. Independent human U1 remains pending.",
+  "new_interface": {
+    "quality_artifact": "quality-final.json",
+    "http_artifact": "http-final.json",
+    "status": "pass",
+    "quality_status": "pass",
+    "questions_sha256": "aa9be670049bd3ff4eb13e6f41eb327849cf43698d399a3085985d1ed4417b82",
+    "dataset_sha256": "c20ee4310e622a55b3f3620d79f7d4acacc9267e76b1bf8c0e23b42500de2fec",
+    "source_sha256": "e8c39dadd18d252dd001068907b9190decb1d0c9dacfc558b74ee22ae5c397f1",
+    "positive_hit_at_5": 0.8,
+    "negative_passes": 4,
+    "unchanged_failed_questions": [
+      "Q17",
+      "Q18",
+      "Q19",
+      "Q20"
+    ],
+    "first_new_service_process_ms": 53.392855,
+    "os_cold_cache": "not_claimed",
+    "http_p95_ms": 129.150544,
+    "warmups": 5,
+    "samples": 100,
+    "source_unchanged": true,
+    "source_stable_during_run": true,
+    "server_processes_stopped": true
+  },
+  "retained_single_source": {
+    "artifact": "retained-single-source.json",
+    "log": "retained-single-source.log",
+    "passed_gates": 16,
+    "total_gates": 16,
+    "fresh_index_1k_seconds": 0.9029,
+    "fresh_index_10k_seconds": 9.3987,
+    "peak_10k_rss_mib": 34.8,
+    "append_1k_seconds": 0.0469,
+    "append_10k_seconds": 0.4774,
+    "first_process_query_seconds": 0.2909,
+    "hot_100_query_p95_ms": 166.81,
+    "post_run_manifest_verification": "pass; original corpus restored",
+    "background_io": "unmeasured"
+  },
+  "native_sqlite_performance": "not_measured",
+  "browser_paint_ms": "not_measured",
+  "U1": "pending",
+  "native_capabilities": {
+    "opencode": {
+      "body_search": "pass",
+      "reasoning_search": "pass",
+      "message_index_ties": "pass",
+      "projects": "full directory with same-basename isolation",
+      "timeline_audit": "available",
+      "content_revision": "unknown",
+      "file_history": "explicit file_history_not_indexed",
+      "source_bytes": "unchanged"
+    },
+    "hermes": {
+      "body_search": "pass",
+      "reasoning_search": "pass: content-only/reasoning-only/both; full message retains both",
+      "message_index_ties": "pass",
+      "projects": "unbound; cli and telegram are transport labels",
+      "timeline_audit": "explicit audit_not_supported_or_unavailable",
+      "file_history": "explicit file_history_not_indexed",
+      "source_bytes": "unchanged except explicit simulated external producer write in revision test"
+    },
+    "openclaw_jsonl": {
+      "body_search": "pass",
+      "message_index_ties": "pass",
+      "projects": "cwd",
+      "timeline_audit": "available",
+      "content_revision": "sha256 captured",
+      "source_bytes": "unchanged"
+    }
+  },
+  "regression": {
+    "python_total": 328,
+    "python_passed": 327,
+    "python_skipped": 1,
+    "skip_reason": "external CM reader not configured",
+    "javascript_suites_passed": 7,
+    "syntax_and_diff": "pass"
+  },
+  "browser": {
+    "environment": "Linux Chrome; synthetic 12-session trial overlay",
+    "search_deep_link": "pass: codex shared-repair-01 message 4 with source_revision",
+    "query_restore": "pass",
+    "raw_record": "pass: original line 6 and revision",
+    "projects": "pass: 3 full paths, same basename kept separate",
+    "file_history": "pass: src/a.py two source sessions, prior failure 2 retained, explicit old/new fragment",
+    "exports": "Chrome keyboard action; clipboard content and downloaded Markdown/JSON bytes checked",
+    "diagnostic": "preview and JSON download, allowlisted no paths",
+    "overflow_420px": false,
+    "overflow_480px": false,
+    "browser_paint_ms": "unmeasured: browser read-only API does not expose performance",
+    "independent_trial": "pending"
+  }
+}

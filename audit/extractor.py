@@ -246,12 +246,20 @@ def _claude_events(obj: Dict[str, Any], line_no: int) -> Iterator[AuditEvent]:
             continue
         if item_type == "tool_result":
             text, is_error = _format_claude_tool_result(item, tool_use_result)
+            # Read explicit exit markers from the original result, not the
+            # display summary whose tail may already have been truncated.
+            exit_codes = _extract_exit_codes(item.get("content"))
+            if not exit_codes and tool_use_result is not None:
+                exit_codes = _extract_exit_codes(tool_use_result)
+            if exit_codes:
+                is_error = any(code != 0 for code in exit_codes)
             yield AuditEvent(
                 ts_ms=ts_ms,
                 role="tool",
                 kind="tool_result",
                 tool_result_text=text,
                 tool_result_error=is_error,
+                tool_result_exit_codes=exit_codes,
                 line_no=line_no,
             )
             continue

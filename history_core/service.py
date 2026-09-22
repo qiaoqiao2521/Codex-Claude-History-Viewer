@@ -12,7 +12,7 @@ def search(indexer, *, query=None, limit=20, offset=0, cwd=None, stable_order=Fa
     return indexer.list_sessions_page(q=query, limit=limit, offset=offset, cwd=cwd, sort="last", **kwargs)
 
 
-def handoff(indexer, session_id, *, include_plans=False):
+def audit_handoff(indexer, session_id):
     validate_native_size(indexer, session_id)
     metadata = indexer.get_session_metadata(session_id)
     if metadata is None:
@@ -21,7 +21,15 @@ def handoff(indexer, session_id, *, include_plans=False):
     if audit is None:
         raise ValueError("audit_not_supported_or_unavailable")
     result = build_handoff_bundle(audit, metadata=metadata, provenance=provenance)
+    result["schema_version"] = "history.handoff.v1"
+    result["authorization"] = "context_only"
+    return audit, result
+
+
+def handoff(indexer, session_id, *, include_plans=False):
+    audit, result = audit_handoff(indexer, session_id)
     if include_plans:
+        metadata = indexer.get_session_metadata(session_id)
         from pathlib import Path
         from .sources import scan_plan_files
         from audit.handoff import render_handoff

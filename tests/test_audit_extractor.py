@@ -140,6 +140,42 @@ class ClaudeExtractorTests(unittest.TestCase):
         self.assertIsNotNone(payload)
         self.assertIn(payload.outcome_signal, ("errored", "completed", "partially_completed", "unknown"))
 
+    def test_explicit_exit_codes_survive_result_summary_truncation(self):
+        from audit.handoff import build_handoff_payload
+        for code, error, status in ((0, False, "pass"), (7, True, "fail")):
+            for block_content in (False, True):
+                with self.subTest(code=code, block_content=block_content):
+                    raw = "synthetic output " * 500 + "\nExit code: " + str(code)
+                    content = [{"type": "text", "text": raw}] if block_content else raw
+                    lines = [
+                        _claude_line("2026-01-01T10:00:00Z", "assistant", [{
+                            "type": "tool_use", "id": "verify", "name": "Bash",
+                            "input": {"command": "python -m pytest tests/test_a.py"}}]),
+                        _claude_line("2026-01-01T10:00:01Z", "user", [{
+                            "type": "tool_result", "tool_use_id": "verify", "is_error": error,
+                            "content": content}]),
+                    ]
+                    self.path.write_text("\n".join(lines) + "\n")
+                    payload = extract_session_audit(self.path, "claude")
+                    self.assertEqual(payload.commands[0]["exit_code"], code)
+                    self.assertEqual(payload.commands[0]["status"], status)
+                    self.assertNotIn("Exit code:", payload.commands[0]["result_summary"])
+                    handoff = build_handoff_payload(payload.to_dict(), provenance={"source": "claude"})
+                    self.assertEqual(handoff["verified"][0]["status"], status)
+
+    def test_non_error_flag_alone_does_not_prove_test_success(self):
+        lines = [
+            _claude_line("2026-01-01T10:00:00Z", "assistant", [{
+                "type": "tool_use", "id": "verify", "name": "Bash", "input": {"command": "pytest"}}]),
+            _claude_line("2026-01-01T10:00:01Z", "user", [{
+                "type": "tool_result", "tool_use_id": "verify", "is_error": False,
+                "content": "result metadata unavailable"}]),
+        ]
+        self.path.write_text("\n".join(lines) + "\n")
+        payload = extract_session_audit(self.path, "claude")
+        self.assertIsNone(payload.commands[0]["exit_code"])
+        self.assertEqual(payload.commands[0]["status"], "unknown")
+
 
 class ToleranceTests(unittest.TestCase):
     def test_malformed_line_does_not_abort(self):
@@ -275,7 +311,21 @@ class DbIntegrationTests(unittest.TestCase):
         self.assertIn("audit_version", cols)
 
     def test_audit_version_constant_matches(self):
-        self.assertEqual(AUDIT_VERSION, 2)
+        self.assertEqual(AUDIT_VERSION, 3)
+
+    def test_old_audit_version_recomputes_unchanged_source(self):
+        import app
+        idx = app.Indexer(self.sessions_dir, self.data_dir, "codex")
+        self.addCleanup(idx.conn.close)
+        idx.scan_sessions()
+        signature = idx.conn.execute("SELECT file_signature FROM sessions").fetchone()[0]
+        idx.conn.execute("UPDATE sessions SET audit_version = 2, value_score = -123")
+        idx.conn.commit()
+        idx.scan_sessions()
+        row = idx.conn.execute("SELECT file_signature, audit_version, value_score FROM sessions").fetchone()
+        self.assertEqual(row["file_signature"], signature)
+        self.assertEqual(row["audit_version"], AUDIT_VERSION)
+        self.assertGreaterEqual(row["value_score"], 0)
 
     def test_serialize_deserialize_roundtrip(self):
         tmp = tempfile.TemporaryDirectory()

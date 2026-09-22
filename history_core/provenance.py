@@ -24,7 +24,7 @@ def validate_native_size(indexer, session_id):
         raise ValueError('handoff_source_limit_exceeded')
 
 
-def selected_audit(indexer, session_id):
+def selected_snapshot(indexer, session_id):
     """Read only the chosen JSONL, and extract from precisely the hashed bytes."""
     source = getattr(indexer, 'source', '')
     root = getattr(indexer, 'sessions_dir', None)
@@ -36,11 +36,11 @@ def selected_audit(indexer, session_id):
             'source': source or 'unknown', 'session_id': str(session_id),
             'locator': {'session_id': str(session_id)},
             'content_revision': 'unknown', 'truncated': False,
-        }
+        }, None
     with indexer.lock:
         row = indexer.conn.execute('SELECT * FROM sessions WHERE id = ?', (str(session_id),)).fetchone()
     if not row:
-        return None, {}
+        return None, {}, None
     path = Path(row['file_path'])
     root = Path(root).absolute()
     if root not in path.absolute().parents:
@@ -85,4 +85,9 @@ def selected_audit(indexer, session_id):
         'context_revision': 'sha256:' + digest, 'bytes_captured': len(raw),
         'byte_limit': MAX_SOURCE_BYTES, 'truncated': truncated,
         'observed_at': datetime.now(timezone.utc).isoformat(),
-    }
+    }, raw
+
+
+def selected_audit(indexer, session_id):
+    audit, provenance, _raw = selected_snapshot(indexer, session_id)
+    return audit, provenance

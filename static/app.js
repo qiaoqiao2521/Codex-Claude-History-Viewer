@@ -84,6 +84,7 @@ const downloadHandoffMdBtn = document.getElementById("downloadHandoffMd");
 const downloadHandoffHtmlBtn = document.getElementById("downloadHandoffHtml");
 
 let currentSession = null;
+let currentSourceRevision = "";
 let currentMessages = [];
 let currentBrowseMessages = [];
 let currentSystem = "windows";
@@ -3421,7 +3422,7 @@ async function fetchFullMessage(index) {
     return msg;
   }
 
-  const res = await fetch(`${apiBase()}/session/${encodeURIComponent(currentSession.id)}/message/${index}`);
+  const res = await fetch(`${apiBase()}/session/${encodeURIComponent(currentSession.id)}/message/${index}${currentSourceRevision ? `?source_revision=${encodeURIComponent(currentSourceRevision)}` : ""}`);
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}`);
   }
@@ -3514,8 +3515,12 @@ async function fetchSessions({ append = false } = {}) {
   }
 }
 
-async function fetchSession(sessionId) {
+async function fetchSession(sessionId, sourceRevision = "") {
+  currentSourceRevision = sourceRevision;
+  currentSession = null;
   const seq = (sessionFetchSeq += 1);
+  const targetNotice = document.getElementById("historyTarget");
+  if (targetNotice) targetNotice.hidden = true;
   currentMessagesLoadingEarlier = false;
   expandedMessageIndexes = new Set();
   const expandToolsParam = new URLSearchParams(window.location.search).get("expand_tools");
@@ -3525,9 +3530,9 @@ async function fetchSession(sessionId) {
   fullToolOutputIndexes = new Set();
   renderStatusMessage("Loading…");
   try {
-    const res = await fetch(`${apiBase()}/session/${encodeURIComponent(sessionId)}`);
+    const res = await fetch(`${apiBase()}/session/${encodeURIComponent(sessionId)}${sourceRevision ? `?source_revision=${encodeURIComponent(sourceRevision)}` : ""}`);
     if (!res.ok) {
-      renderStatusMessage(`Failed to load session (${res.status})`, { kind: "error" });
+      renderStatusMessage(res.status === 409 ? "索引已变化，请返回重新搜索后打开消息。" : `Failed to load session (${res.status})`, { kind: "error" });
       return;
     }
     const data = await res.json();
@@ -3570,7 +3575,9 @@ async function loadMessageWindow({ offset, limit, replace = false, prepend = fal
     offset: String(Math.max(0, Number(offset) || 0)),
     limit: String(Math.max(1, Number(limit) || MESSAGE_RENDER_PAGE_SIZE)),
   });
+  if (currentSourceRevision) params.set("source_revision", currentSourceRevision);
   const res = await fetch(`${apiBase()}/session/${encodeURIComponent(currentSession.id)}/messages?${params.toString()}`);
+  if (res.status === 409) throw new Error("索引已变化，请返回重新搜索");
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   if (seq !== sessionFetchSeq) return;
@@ -4383,6 +4390,28 @@ window.addEventListener("resize", () => {
   clampLayoutToViewport();
 });
 
+async function applyHistoryTarget(target, navigate = scrollToMessage) {
+  if (!target.get("session") || currentSession?.id !== target.get("session")) return false;
+  const raw = target.get("message");
+  const query = (target.get("q") || "").slice(0, 300);
+  const notice = document.getElementById("historyTarget");
+  if (raw === null && !query) return false;
+  const index = /^\d+$/.test(raw || "") ? Number(raw) : -1;
+  const valid = Number.isSafeInteger(index) && index >= 0 && index < currentMessageTotal;
+  const owner = currentSession.id;
+  // Cross-source term matching can span several messages. Preserve the query
+  // as context instead of applying the legacy exact-phrase message filter.
+  document.querySelectorAll(".roles input[type=checkbox]").forEach(input => { input.checked = true; });
+  const located = valid ? await navigate(index) : false;
+  if (currentSession?.id !== owner) return false;
+  if (located && isToolMessage(currentMessages.find(msg => msg.message_index === index))) expandToolMessage(index);
+  if (notice) {
+    notice.hidden = false;
+    notice.textContent = `${query ? `检索：${query} · ` : ""}${located ? `已定位消息 ${index}` : "消息定位已失效，请重新搜索"}`;
+  }
+  return located;
+}
+
 async function bootstrapApp() {
   await loadSourceCatalog();
   applyStoredSourceContext();
@@ -4396,13 +4425,17 @@ async function bootstrapApp() {
   updateResumeCommandLabels();
   loadFilePathFilterFromUrl();
   await reloadList();
-  if (target.get("session")) await fetchSession(target.get("session"));
+  if (target.get("session")) {
+    await fetchSession(target.get("session"), target.get("source_revision") || "");
+    await applyHistoryTarget(target);
+  }
 }
 
 bootstrapApp();
 
 if (globalThis.__CCHV_TEST__) {
   globalThis.__testApi = {
+    applyHistoryTarget,
     getMessageHtml,
     buildMessageElement,
     buildResumeCommands,

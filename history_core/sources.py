@@ -2923,6 +2923,22 @@ class HermesStateIndexer:
             kind = "message"
             text = ""
 
+        if content and reasoning and not tool_calls:
+            # Hermes stores reasoning beside the answer in the same row. Keep
+            # that row's message index while making both fields reachable from
+            # a search deep link. Preview queries may have shortened each field
+            # independently, so use their original lengths for the combined cap.
+            separator = "\n\nReasoning:\n"
+            text = content + separator + reasoning
+            content_chars = row["content_char_count"] if "content_char_count" in row.keys() else len(content)
+            reasoning_chars = row["reasoning_char_count"] if "reasoning_char_count" in row.keys() else len(reasoning)
+            char_count_hint = int(content_chars or 0) + len(separator) + int(reasoning_chars or 0)
+            is_truncated_hint = (not include_full_text) and (
+                char_count_hint > MESSAGE_INLINE_FULL_THRESHOLD
+                or bool(row["content_is_truncated"] if "content_is_truncated" in row.keys() else False)
+                or bool(row["reasoning_is_truncated"] if "reasoning_is_truncated" in row.keys() else False)
+            )
+
         text, char_count, is_truncated = normalize_message_payload(
             text,
             include_full_text=include_full_text,

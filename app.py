@@ -172,8 +172,17 @@ class SourceBackend:
         self.ensure_fn = ensure_fn
         self.read_only = bool(read_only)
         self.scan_interval = max(1, int(scan_interval))
+        self.last_refresh_error = None
+        self.last_refreshed_at = None
+        self.refreshing = False
+        self._refresh_lock = threading.Lock()
+        self._indexer_factory = indexer_factory
         if indexer_factory is not None:
-            self.indexer = indexer_factory()
+            try:
+                self.indexer = indexer_factory()
+            except (OSError, ValueError, sqlite3.Error) as exc:
+                self.indexer = None
+                self.last_refresh_error = type(exc).__name__ + ': source initialization failed'
         else:
             self.indexer = Indexer(
                 sessions_dir=self.sessions_dir,
@@ -186,8 +195,6 @@ class SourceBackend:
                 parser_version=parser_version,
                 recall_db_path=recall_db_path,
             )
-        self.last_refresh_error = None
-        self.last_refreshed_at = None
         if self.ensure_fn is None:
             try:
                 self._refresh_index_once()
@@ -202,9 +209,19 @@ class SourceBackend:
             raise RuntimeError(self.last_refresh_error)
 
     def _refresh_index_once(self):
+        with self._refresh_lock:
+            self.refreshing = True
+            try:
+                return self._perform_refresh()
+            finally:
+                self.refreshing = False
+
+    def _perform_refresh(self):
         try:
             if self.ensure_fn:
                 self.ensure_fn()
+            if self.indexer is None and self._indexer_factory:
+                self.indexer = self._indexer_factory()
             self.indexer.maybe_update_index(max_age_seconds=0)
             self.last_refreshed_at = datetime.now(timezone.utc).isoformat()
             self.last_refresh_error = None
@@ -322,6 +339,9 @@ class Handler(SimpleHTTPRequestHandler):
             info = json.loads(info_path.read_text()) if info_path.exists() else {'source_commit': 'unknown'}
             return self.send_json({'version': (root / 'VERSION').read_text().strip(), 'source_commit': info.get('source_commit', 'unknown')})
 
+        if path.startswith('/api/reuse/'):
+            return self.handle_reuse_get(parsed)
+
         if path == "/api/sources":
             return self.handle_sources()
 
@@ -372,7 +392,7 @@ class Handler(SimpleHTTPRequestHandler):
                 return self.handle_session_messages(session_id, parsed, backend)
             if source_path and "/message/" in source_path:
                 session_id, message_index = self._extract_session_message_request(source_path)
-                return self.handle_session_message(session_id, message_index, backend)
+                return self.handle_session_message(session_id, message_index, backend, parsed)
             if source_path and source_path.endswith("/search"):
                 session_id = self._extract_session_id(source_path, "/search")
                 return self.handle_session_search(session_id, parsed, backend)
@@ -398,12 +418,20 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
-        length = int(self.headers.get("Content-Length", 0))
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            return self.send_json({'error':'invalid_content_length'},status=400)
+        if length < 0 or (path.startswith('/api/reuse/') and length > 65536):
+            return self.send_json({'error':'request_too_large'},status=413)
         body = self.rfile.read(length) if length else b""
         try:
             data = json.loads(body) if body else {}
         except Exception:
             data = {}
+
+        if path.startswith('/api/reuse/'):
+            return self.handle_reuse_post(parsed, data)
 
         backend, source_path = self._resolve_source_request(path)
         if not backend or not source_path:
@@ -471,6 +499,84 @@ class Handler(SimpleHTTPRequestHandler):
                 return _pin()
 
         return self.send_json({"error": "not found"}, status=404)
+
+    def _reuse_sources(self):
+        from history_core.reuse import error_code
+        sources, errors = [], []
+        for (system, source), backend in self._source_backends.items():
+            try:
+                backend.ensure_ready()
+                if backend.indexer is None:
+                    raise ValueError('source_unavailable')
+                sources.append((system, source, backend.indexer))
+            except Exception as exc:
+                errors.append({'system': system, 'source': source, 'error': error_code(exc)})
+        return sources, errors
+
+    def handle_reuse_get(self, parsed):
+        from history_core import reuse
+        from history_core.diagnostics import health
+        params = parse_qs(parsed.query, keep_blank_values=True)
+        value = lambda key, default=None: params.get(key, [default])[0]
+        endpoint = parsed.path.rsplit('/', 1)[-1]
+        if endpoint == 'health':
+            return self.send_json(health(self._source_backends, demo=self._demo,
+                system=self._runtime_system, version=Path(__file__).with_name('VERSION').read_text().strip()))
+        sources, errors = self._reuse_sources()
+        try:
+            page = {'cursor':value('cursor'), 'limit':value('limit',20), 'errors':errors}
+            if endpoint == 'search':
+                start = parse_date_param(value('start'), end=False)
+                end = parse_date_param(value('end'), end=True)
+                if value('start') and start is None or value('end') and end is None:
+                    raise ValueError('invalid_date')
+                result = reuse.search(sources, query=value('q',''), source=value('source') or None,
+                    project=value('project'), start_ms=start, end_ms=end, **page)
+            elif endpoint == 'projects':
+                result = reuse.projects(sources, **page)
+            elif endpoint == 'timeline':
+                result = reuse.timeline(sources, project=value('project'), file_path=value('file') or None, **page)
+            elif endpoint == 'raw':
+                from history_core.evidence import raw_record
+                target = next((x for x in sources if x[0] == value('system') and x[1] == value('source')), None)
+                if target is None: raise ValueError('source_unavailable')
+                result = raw_record(target[2], value('session'),
+                    {'content_revision': value('content_revision'), 'context_revision': value('context_revision')},
+                    evidence_id=value('evidence_id'), line_no=value('line_no'))
+            elif endpoint == 'evidence':
+                target = next((x for x in sources if x[0] == value('system') and x[1] == value('source')),None)
+                if target is None: raise ValueError('source_unavailable')
+                expected = value('source_revision')
+                if expected and reuse.index_revision(target[2]) != expected:
+                    raise ValueError('index_revision_changed')
+                result = reuse.evidence_item(*target, value('session'))
+                if expected and reuse.index_revision(target[2]) != expected:
+                    raise ValueError('index_revision_changed')
+            else:
+                return self.send_json({'error':'not_found'},status=404)
+            return self.send_json(result)
+        except (ValueError,OSError,sqlite3.Error) as exc:
+            code = reuse.error_code(exc)
+            return self.send_json({'error':code},status=409 if 'revision' in code or 'stale' in code else 400)
+
+    def handle_reuse_post(self, parsed, data):
+        from history_core import reuse
+        if not isinstance(data,dict): return self.send_json({'error':'invalid_request'},status=400)
+        endpoint=parsed.path.rsplit('/',1)[-1]
+        try:
+            if endpoint == 'refresh':
+                backend=self._source_backends.get((data.get('system'),data.get('source')))
+                if backend is None: raise ValueError('source_unavailable')
+                backend._refresh_index_once()
+                return self.send_json({'status':'refreshed'})
+            if endpoint == 'selection':
+                from history_core.evidence import selection_bundle
+                sources,errors=self._reuse_sources()
+                return self.send_json(selection_bundle(sources,data.get('selections')))
+            return self.send_json({'error':'not_found'},status=404)
+        except (ValueError,OSError,sqlite3.Error) as exc:
+            code=reuse.error_code(exc)
+            return self.send_json({'error':code},status=409 if 'revision' in code or 'stale' in code or 'changed' in code else 400)
 
     def handle_sources(self):
         items = []
@@ -686,12 +792,27 @@ class Handler(SimpleHTTPRequestHandler):
             "narrative": narrative,
         })
 
+    def _check_source_revision(self, backend, parsed):
+        from history_core.reuse import index_revision
+        expected = parse_qs(parsed.query).get('source_revision', [None])[0] if parsed else None
+        if not expected:
+            return True
+        try:
+            matches = index_revision(backend.indexer) == expected
+        except (OSError, ValueError, sqlite3.Error):
+            matches = False
+        if not matches:
+            self.send_json({'error': 'index_revision_changed', 'detail': '重新搜索后打开消息。'}, status=409)
+        return matches
+
     def handle_session(self, session_id, backend, parsed=None):
+        if not self._check_source_revision(backend, parsed): return
         include_messages = False
         if parsed is not None:
             params = parse_qs(parsed.query)
             include_messages = params.get("include_messages", ["0"])[0] in ("1", "true", "yes")
         data = backend.indexer.get_session(session_id, include_messages=include_messages)
+        if not self._check_source_revision(backend, parsed): return
         if not data:
             return self.send_json({"error": "not_found"}, status=404)
         return self.send_json(data)
@@ -699,22 +820,17 @@ class Handler(SimpleHTTPRequestHandler):
     def handle_session_audit(self, session_id, parsed, backend):
         if session_id is None:
             return self.send_json({"error": "not_found"}, status=404)
-        builder = getattr(backend.indexer, "build_session_audit", None)
-        audit = builder(session_id) if builder else None
-        if audit is None:
-            return self.send_json({"error": "audit_unavailable"}, status=404)
-        ai_audit = None
+        from history_core.service import audit_handoff
+        from history_core.reuse import error_code
+        try:
+            audit, bundle = audit_handoff(backend.indexer, session_id)
+        except (ValueError, OSError, sqlite3.Error) as exc:
+            code = error_code(exc)
+            return self.send_json({'error':code},status=404 if code in ('session_not_found','audit_not_supported_or_unavailable') else 409)
         getter = getattr(backend.indexer, "get_stored_ai_audit", None)
-        if getter:
-            ai_audit = getter(session_id)
-        metadata_getter = getattr(backend.indexer, "get_session_metadata", None)
-        metadata = metadata_getter(session_id) if metadata_getter else None
-        return self.send_json({
-            "audit": audit,
-            "ai_audit": ai_audit,
-            "ai_configured": self._audit_llm_configured(),
-            "handoff": build_handoff_bundle(audit, metadata=metadata, ai_audit=ai_audit),
-        })
+        ai_audit = getter(session_id) if getter else None
+        return self.send_json({"audit":audit,"ai_audit":ai_audit,
+                              "ai_configured":self._audit_llm_configured(),"handoff":bundle})
 
     def handle_audit_generate(self, session_id, data, backend):
         if session_id is None:
@@ -776,20 +892,24 @@ class Handler(SimpleHTTPRequestHandler):
         )
 
     def handle_session_messages(self, session_id, parsed, backend):
+        if not self._check_source_revision(backend, parsed): return
         if session_id is None:
             return self.send_json({"error": "not_found"}, status=404)
         params = parse_qs(parsed.query)
         offset = params.get("offset", [0])[0]
         limit = params.get("limit", [DEFAULT_LIMIT])[0]
         data = backend.indexer.get_session_messages_page(session_id, offset=offset, limit=limit)
+        if not self._check_source_revision(backend, parsed): return
         if data is None:
             return self.send_json({"error": "not_found"}, status=404)
         return self.send_json(data)
 
-    def handle_session_message(self, session_id, message_index, backend):
+    def handle_session_message(self, session_id, message_index, backend, parsed=None):
+        if not self._check_source_revision(backend, parsed): return
         if session_id is None or message_index is None:
             return self.send_json({"error": "not_found"}, status=404)
         data = backend.indexer.get_session_message(session_id, message_index)
+        if not self._check_source_revision(backend, parsed): return
         if not data:
             return self.send_json({"error": "not_found"}, status=404)
         return self.send_json({"message": data})
@@ -863,7 +983,7 @@ def main():
             return None
         candidates = []
         if explicit_path:
-            candidates.append(Path(explicit_path).expanduser())
+            return Path(explicit_path).expanduser()
         if runtime_system != "windows":
             candidates.extend(
                 [
@@ -881,7 +1001,7 @@ def main():
             return None
         candidates = []
         if explicit_path:
-            candidates.append(Path(explicit_path).expanduser())
+            return Path(explicit_path).expanduser()
         if runtime_system != "windows":
             candidates.append(Path("~/.local/share/opencode/opencode.db").expanduser())
         for candidate in candidates:
@@ -953,7 +1073,7 @@ def main():
             runtime_system,
             "hermes",
             hermes_root,
-            hermes_root,
+            hermes_state_db,
             "index_hermes.sqlite",
             parse_codex_session_file,
             1,
@@ -968,7 +1088,7 @@ def main():
             runtime_system,
             "opencode",
             opencode_root,
-            opencode_root,
+            opencode_state_db,
             "index_opencode.sqlite",
             parse_codex_session_file,
             1,
@@ -1002,7 +1122,7 @@ def main():
         backend = source_backends[key]
         print(f"{backend.system}/{backend.source}: {backend.root_dir}")
         print(f"  sessions: {backend.sessions_dir}")
-        print(f"  index:    {backend.indexer.db_path}")
+        print(f"  index:    {getattr(backend.indexer, 'db_path', 'unavailable')}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

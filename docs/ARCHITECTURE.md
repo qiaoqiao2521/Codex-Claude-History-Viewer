@@ -38,7 +38,7 @@ A dependency-free Python HTTP server indexes local Agent histories into per-sour
 
 ### Handoff layer
 
-`audit/handoff.py` builds compact or standard continuation capsules from deterministic audit data, selected user constraints, verification results, evidence locations, and current Git state. It intentionally excludes raw transcripts, hidden prompts, reasoning, and full tool output. The frontend renders the selected capsule as themed markdown (`.handoff-theme-*`), copies it as rich text, and exports `.md` / standalone themed `.html`.
+`audit/handoff.py` builds compact or standard continuation capsules from deterministic audit data, selected user constraints, verification results, evidence locations, and explicit unknown current Git state unless separately requested. It intentionally excludes raw transcripts, hidden prompts, reasoning, and full tool output. The frontend renders the selected capsule as themed markdown (`.handoff-theme-*`), copies it as rich text, and exports `.md` / standalone themed `.html`.
 
 ### Usage aggregation
 
@@ -85,7 +85,7 @@ compact AI audit input or deterministic handoff
 
 ## External Dependencies
 
-- Python 3.8+ standard library and a modern browser are the only required runtime dependencies.
+- Python 3.11+ standard library and a modern browser are the only required runtime dependencies.
 - Optional AI audit can use an OpenAI-compatible endpoint or a reachable local Ollama service.
 - Agent history formats and OpenCode/Hermes schemas are external contracts that may evolve.
 
@@ -147,8 +147,7 @@ JSONL caches live under a source-path-bound machine subdirectory, disjoint from 
 old CLI caches are retained but not reused, so first use requires explicit refresh.
 Linked source/cache entries and cached handoff paths outside the selected source fail
 explicitly. This is an application capability boundary, not a Python process sandbox.
-Machine pagination adds an ID tie-breaker for fixed index content; pagination across
-refresh revisions is not yet guaranteed. Search and health report freshness unknown.
+Machine pagination binds an index revision and adds an ID tie-breaker; changed revisions require restarting from the first page. Search and health report freshness unknown.
 Construction/refresh validate the source tree; cached search validates only the selected
 root and cache. Handoff checks the selected path lexically and after resolution, rejects
 linked components, and explicitly opens that file so read errors cannot become empty audits.
@@ -173,3 +172,16 @@ context requires an explicit include-plans flag. The workspace displays historic
 as such and surfaces background refresh failures. Demo caches always use a separate child
 directory. Release archives embed commit/file hashes; the runtime exposes its actual build
 identity through /api/version.
+
+## Cross-source evidence workspace (1.3 candidate)
+
+`/` serves `static/workspace.*`; `/history` preserves the source-specific browser.
+`history_core/reuse.py` provides bounded search, exact-cwd projects and timelines over existing indexes. `/api/reuse/{search,projects,timeline}` returns a cursor tied to all participating source revisions. Query failures stop continuation; native SQLite stores retain explicit capability limits. Hermes transport labels are not project directories.
+
+Search snippets carry cached message offsets plus a source revision, checked before and after deep-link message reads. Audit event offsets are different: `/api/reuse/raw` reads an exact JSONL line from the same bounded source snapshot and validates content/context revision. `provenance.selected_snapshot` is shared with Web/Reader audit and selected exports; no second transcript parser or source writes are introduced.
+
+`file_history.py` extracts only explicit file tool inputs/results from a revision-bound snapshot. Explicit patches or old/new replacements can be shown; unrelated tests and current disk state are not inferred. Native databases without indexed file sets report unsupported instead of silently returning complete-looking empty history.
+
+`evidence.py` assembles at most 5 selected summaries or indexed messages / 8000 body characters, rejects stale selections, masks common secret patterns and returns previewable Markdown/JSON. Bounded-prefix summaries and complete-message exports have distinct bindings. Masking is not full anonymization. `diagnostics.py` returns richer local-only source status and a separate allowlisted export, never paths or transcripts in that export. Indexing status avoids waiting on the index lock.
+
+Validation and source capability matrix: [reuse findings](../plans/history-reuse-product/findings.md). Fixed synthetic quality/performance tests do not replace U1 or native database performance measurements.

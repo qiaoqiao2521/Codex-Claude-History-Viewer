@@ -543,8 +543,24 @@ async function testOutOfOrderAuditResponseKeepsLatestSession() {
   assert.doesNotMatch(api.getHandoffPreviewBodyElement().innerHTML, /LATE_A/);
 }
 
+async function testHistoryTargetKeepsQueryAndNavigatesExactMessage() {
+  const { api } = await loadApp();
+  await flushAsync();
+  api.setCurrentSession({id: "shared"});
+  api.setCurrentMessageWindow({offset: 90, total: 100});
+  let visited = null;
+  const result = await api.applyHistoryTarget(new URLSearchParams({session: "shared", message: "3", q: "SQLite locked"}), async index => { visited = index; return true; });
+  assert.equal(result, true);
+  assert.equal(visited, 3);
+  assert.match(document.getElementById("historyTarget").textContent, /SQLite locked.*消息 3/);
+  assert.equal(await api.applyHistoryTarget(new URLSearchParams({session: "shared", message: "101"}), async () => { throw Error("invalid index navigated"); }), false);
+  assert.match(document.getElementById("historyTarget").textContent, /已失效/);
+  assert.equal(await api.applyHistoryTarget(new URLSearchParams({session: "shared", message: "2"}), async () => { api.setCurrentSession({id: "new"}); return true; }), false);
+}
+
 async function main() {
   const tests = [
+    testHistoryTargetKeepsQueryAndNavigatesExactMessage,
     testUsageHtmlEmptyState,
     testUsageHtmlRendersChipsBarsAndTopSessions,
     testUsagePanelRenderSetsSummaryAndContent,

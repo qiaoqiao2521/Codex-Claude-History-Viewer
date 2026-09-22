@@ -3,7 +3,10 @@
 Local-first, dependency-free web viewer for **Codex CLI**, **Claude Code**, **OpenClaw**, **OpenCode**, and **Hermes** session history.
 
 - Browse sessions and projects (work dirs)
-- Search sessions by keyword + date range
+- Search across sources by keyword, project and date; open matching messages with revision checks
+- Follow cross-source project/file history, inspect recorded patches and retain earlier failures
+- Select up to 5 evidence fragments for a revision-bound, masked Markdown/JSON handoff
+- Inspect local source status and preview a sanitized diagnostic export
 - Filter messages by role, and search within a session (highlight + next/prev)
 - Sort sidebar by **start time**, **last activity**, or **value signal**
 - Audit badges per session: files touched, tool count, remote/test/deploy/debug activity, friction, outcome, value score
@@ -32,6 +35,8 @@ Codex CLI and Claude Code both generate local, machine-readable transcripts (JSO
 - audit tool failures and interruptions
 - compare sessions across days/projects
 - keep everything **local** (no uploads by default)
+
+Current checkout: **1.3.0-rc.1 candidate**. Engineering acceptance and U1 status: [history reuse plan](plans/history-reuse-product/progress.md). Independent Linux user trial is pending; stable v1.2.0 remains available.
 
 ## Quick start
 
