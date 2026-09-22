@@ -12,10 +12,10 @@
 - [x] L1 盘点可执行文件、别名与实际存储格式。
 - [x] L2 实现解析器和来源发现，接入 Web / HistoryReader。
 - [x] L3 接入来源 UI、能力提示及来源交接；用合成数据验证边界。
-- [ ] L4 回归、只读真实数据核验、浏览器验收及文档收口。
+- [x] L4 回归、只读真实数据核验、浏览器验收及文档收口。
 
 ## Acceptance
 明确包含 OpenCode、CodeBuddy/cbc；每个发现的独立来源有读取能力或具体不支持原因；别名不重复计数；demo 隔离真实历史；失败/未知状态不伪装成完成证据。
 
 ## Status
-L1–L3 complete. L4 code, read-only data and browser acceptance complete; final regression and local candidate installation in progress. Legacy AGY PB / missing desktop bodies are explicit capability limits, not silently claimed successes. U1 remains pending independently.
+L1–L4 complete. 本机 13 来源共享注册、适配、审查、回归、真实只读核验、浏览器与离线候选安装全部收口。候选 1.3.0-rc.2 已安装；源码/包/回滚身份见 progress。AGY 旧 PB / 桌面正文缺失、pi/Prime 无本机数据是已记录能力边界。U1 独立试用继续 pending，不发布新稳定版。

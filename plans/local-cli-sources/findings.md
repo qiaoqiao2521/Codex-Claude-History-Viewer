@@ -22,3 +22,7 @@
 - Browser (Chrome, synthetic-only localhost:8794): cross-source search; CBC source/deep-link + validated resume command; Gemini JSON Pointer raw record and selected handoff; AGY decoded search/message jump + partial coverage and legacy metadata notice; ZCode sequence order and explicit tail-failure `incomplete`. Server and task tab stopped after acceptance.
 - Integration tests cover actual app startup with fake HOME, all default stores, missing optional histories, explicit bad paths, source mutation/revision rejection, metadata/partial pagination, demo isolation and unchanged source bytes. AGY actual I/O budgets include summary DB/WAL and conversations; over-limit reads fail explicitly.
 - Final regression: `python3 -m unittest discover -s tests -q` ran 413 tests in 11.327s, 412 passed / 1 existing external integration skipped; all 7 `tests/test_*.js` suites passed. Python compileall, both JS syntax checks and `git diff --check` passed.
+
+## Local candidate delivery
+
+`1.3.0-rc.2` artifact source is `eb40004d2a8d2042fba3adecab77f1a0e674fcf7`; SHA256 and install paths are recorded in progress. Clean-venv artifact verification, synthetic old-cache upgrade/rollback and the actual `cchv` launcher HTTP version/13-source catalog all passed. The launcher is now on the new candidate; the earlier 1.2.0 observation above is superseded. Original stable directory remains intact, temporary acceptance processes stopped, no remote push or stable release.
