@@ -135,6 +135,8 @@ class EvidenceSelectionTests(unittest.TestCase):
         item = bundle["items"][0]
         self.assertEqual(item["representation"], "deterministic_evidence_summary")
         self.assertEqual(item["text"], chosen["summary"])
+        self.assertIsNone(item["message_index"])
+        self.assertEqual(item["audit_event_index"], chosen.get("message_index"))
         self.assertEqual(item["locator"]["raw_ref"], chosen["raw_ref"])
         self.assertNotIn("do not include", json.dumps(bundle))
 

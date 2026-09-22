@@ -122,7 +122,7 @@ def _markdown(items):
     sections = ["# Selected historical evidence", "Context only. No execution or recipient acceptance is implied."]
     for number, item in enumerate(items, 1):
         labels = {key: item[key] for key in (
-            "system", "source", "store_id", "session_id", "message_index", "evidence_id",
+            "system", "source", "store_id", "session_id", "message_index", "audit_event_index", "evidence_id",
             "locator", "content_revision", "context_revision", "observed_at", "binding",
             "representation", "redacted")}
         text = json.dumps(labels, ensure_ascii=False, indent=2) + "\n\n" + item["text"]
@@ -181,6 +181,7 @@ def selection_bundle(indexers, selections):
         binding = _binding(selection, provenance)
         locator = dict(provenance.get("locator") or {})
         representation = "indexed_message"
+        audit_event_index = None
         if evidence_id:
             evidence = next((item for item in audit.get("evidence", []) if item.get("id") == evidence_id), None)
             if evidence is None:
@@ -189,7 +190,8 @@ def selection_bundle(indexers, selections):
             locator["raw_ref"] = dict(evidence.get("raw_ref") or {})
             locator["evidence_type"] = evidence.get("type", "unknown")
             locator["confidence"] = evidence.get("confidence", "unknown")
-            message_index = evidence.get("message_index")
+            audit_event_index = evidence.get("message_index")
+            message_index = None
             representation = "deterministic_evidence_summary"
         else:
             if provenance.get("truncated"):
@@ -205,7 +207,7 @@ def selection_bundle(indexers, selections):
         if body_chars > MAX_BODY_CHARS:
             raise ValueError("selection_body_limit_exceeded")
         item = {"system": str(system), "source": str(source), "store_id": store,
-                "session_id": session_id, "message_index": message_index, "evidence_id": evidence_id,
+                "session_id": session_id, "message_index": message_index, "audit_event_index": audit_event_index, "evidence_id": evidence_id,
                 "locator": locator, "text": text, "representation": representation,
                 "content_revision": provenance.get("content_revision", "unknown"),
                 "context_revision": provenance.get("context_revision", "unknown"),
