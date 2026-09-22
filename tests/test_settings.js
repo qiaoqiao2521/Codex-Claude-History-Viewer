@@ -249,6 +249,58 @@ async function run() {
   assert.deepEqual(JSON.parse(request[1].body), {system: 'linux', source: 'codebuddy'});
   assert.match(refreshed.get('settingsSourceStatus').textContent, /已检查 1/);
 
+  // The first completed refresh replaces both cards. Completion of the second
+  // operation must still re-read health, even though its original button left DOM.
+  for (const secondSucceeded of [true, false]) {
+    const firstPost = deferred(), secondPost = deferred();
+    const states = {codex: 'ready', claude: 'ready'};
+    let healthReads = 0;
+    const concurrent = fixture({reader: false, fetcher(url, options) {
+      if (options?.method === 'POST') {
+        return JSON.parse(options.body).source === 'codex' ? firstPost.promise : secondPost.promise;
+      }
+      if (url === '/api/reuse/health') {
+        healthReads++;
+        return response({sources: Object.entries(states).map(([source, status]) =>
+          ({system: 'linux', source, status, path: '/synthetic/' + source}))});
+      }
+    }});
+    concurrent.api.open('sources'); await flush();
+    const buttons = concurrent.walk(concurrent.get('settingsSourceList')).filter(node => node.tagName === 'BUTTON');
+    const first = buttons[0].click(), second = buttons[1].click();
+    states.claude = 'indexing';
+    firstPost.resolve(response({status: 'refreshed'})); await first;
+    assert.equal(buttons[1].isConnected, false, 'first refresh replaces the second operation\'s old card');
+    assert.match(concurrent.get('settingsSourceList').textContent, /更新中/);
+    states.claude = secondSucceeded ? 'ready' : 'error';
+    secondPost.resolve(response({status: secondSucceeded ? 'refreshed' : 'failed'}, secondSucceeded));
+    await second;
+    assert.equal(healthReads, 3, 'each completed refresh obtains current health');
+    assert.doesNotMatch(concurrent.get('settingsSourceList').textContent, /更新中|正在刷新/);
+    if (!secondSucceeded) assert.match(concurrent.get('settingsSourceList').textContent, /读取失败/);
+    assert.equal(buttons[1].textContent, '正在刷新…', 'the detached original button is not mistaken for a new card');
+  }
+
+  // Leaving the source panel invalidates UI follow-up for either result. Source
+  // refresh itself still completes on the server; no hidden health polling starts.
+  for (const dismissal of ['close', 'reading']) {
+    for (const succeeded of [true, false]) {
+      const pendingPost = deferred();
+      let healthReads = 0;
+      const hidden = fixture({reader: false, fetcher(url, options) {
+        if (options?.method === 'POST') return pendingPost.promise;
+        if (url === '/api/reuse/health') { healthReads++; return response(data); }
+      }});
+      hidden.api.open('sources'); await flush();
+      const button = hidden.walk(hidden.get('settingsSourceList')).find(node => node.tagName === 'BUTTON');
+      const pending = button.click();
+      if (dismissal === 'close') hidden.get('readerSettingsDialog').close();
+      else hidden.api.open('reading');
+      pendingPost.resolve(response({status: 'finished'}, succeeded)); await pending;
+      assert.equal(healthReads, 1, `${dismissal} suppresses follow-up reads for ${succeeded ? 'success' : 'failure'}`);
+    }
+  }
+
   const failures = [];
   // The legacy theme click listener must not disagree with the settings listener
   // when localStorage rejects the write.

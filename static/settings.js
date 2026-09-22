@@ -93,12 +93,15 @@
             try {
               const result = await fetch('/api/reuse/refresh', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({system: source.system, source: source.source})});
               if (!result.ok) throw new Error('refresh_failed');
-              if (dialog.open && !$('settingsSources').hidden && refresh.isConnected) {
-                refresh.disabled = false; refresh.textContent = '刷新此来源';
+              if (dialog.open && !$('settingsSources').hidden) {
+                if (refresh.isConnected) { refresh.disabled = false; refresh.textContent = '刷新此来源'; }
                 await loadSources();
               }
             } catch {
-              if (!dialog.open || $('settingsSources').hidden || !refresh.isConnected) return;
+              if (!dialog.open || $('settingsSources').hidden) return;
+              // Another refresh may already have replaced this card. Read the
+              // current source state instead of updating a newer card's button.
+              if (!refresh.isConnected) { await loadSources(); return; }
               refresh.disabled = false; refresh.textContent = '重试刷新';
               $('settingsSourceStatus').textContent = '刷新失败，请检查来源路径或稍后重试。';
             }
