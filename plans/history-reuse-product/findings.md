@@ -42,10 +42,12 @@
 
 - 用户授权完整实施，并明确 U1 稍后安排。五项功能完成；候选 1.3.0-rc.1 不取代稳定发行 v1.2.0。代码、包、安装身份以 progress 的最终冻结记录为准。
 - E0 在旧 HEAD a58df9a 上先冻结：已知来源情况下会话 Hit@5 16/20，首屏消息证据 0/20。新跨来源准确消息证据 16/20，负例 4/4；Q17–Q20 的自然语言改写未命中，保留原题。题集只修正 store_id 字段契约，语义摘要 8de4b68ab63a5f0a4366b2e5bbcf18d067f4b8c216faa2b067c9a655cf3eebde 未改题意/答案/门槛。
-- 10k 固定 JSONL：Codex/Claude 各 5000，20 消息/16KiB。5 次预热、100 HTTP，nearest-rank p95 129.15ms，首次新服务进程 53.39ms（不声称 OS 冷缓存）。保留旧单来源 16/16 门槛通过，10k RSS 34.8MiB、热查 p95 166.81ms。原生数据库性能未测。
+- 10k 固定 JSONL：Codex/Claude 各 5000，20 消息/16KiB。5 次预热、100 HTTP，nearest-rank p95 120.51ms，首次新服务进程 54.77ms（不声称 OS 冷缓存）。保留旧单来源 16/16 门槛通过，10k RSS 34.8MiB、热查 p95 166.81ms。原生数据库性能未测。
 - 机器结果摘要、来源矩阵、回归与浏览器事实见 [acceptance.json](acceptance.json)；详细本机原始测量保存在忽略的 work/reuse-evaluation/，可按脚本与冻结题集再生。测量有自己的源码摘要，不把后续纯文档改动冒充测量时源码。
 - 原生能力：OpenCode 可检索/项目/审计，但 ordinary provenance unknown，不能据此选择修订证据；Hermes 可搜正文及 reasoning，cwd 未记录则未绑定，ordinary audit 不支持；两者文件追溯显式 file_history_not_indexed。OpenClaw JSONL 的检索/项目/修订审计通过合成测试。这不是这些工具的真实账户验收。
 - 两轮独立审查复现并修复：部分来源查询失败导致跨页混合集合、Hermes reasoning 被正文遮盖、indexing health 等待锁、旧深链索引漂移。另通过原生矩阵修正 Hermes transport 冒充 cwd；浏览器发现 Claude 显式退出码遗漏，修复并将 AUDIT_VERSION 升到 3。
 - 搜索消息偏移与审计事件偏移不同。前者经 source_revision 校验缓存页面；后者经 evidence_id/raw line 与内容修订读取原始行。文件工具仅对精确路径和明确调用结果配对，结构化补丁可展示，当前磁盘状态始终 unknown。
 - Chrome 实机验证：消息4准确跳转/返回保留查询、来源诊断、三个项目、src/a.py 的两来源记录、失败保留、原始行及纯文本 patch；选择完整消息和审计摘要分开标示。剪贴板和本地 Markdown/JSON 下载验证。420/480px 测得无横向溢出；浏览器绘制时间因当前只读接口不提供 performance 而保留未测，不用 HTTP 时间替代。
 - 仅合成数据。旧真实缓存、真实 JSONL 与第三方库未用于本轮浏览器和性能验证；试用包只包含12条合成记录。U1 尚未邀请/运行，不由 Agent 代测。
+
+- 最终冻结代码 0bb034b 上重测 10k HTTP/固定题集通过，源码摘要 f20099f43ee31f44e30ee79717f43c352b876c1e8950c7e9943a42125baab0c5。导出摘要的事件序号单列 audit_event_index，message_index 仅用于实际缓存消息；21 专项及全量328回归通过。

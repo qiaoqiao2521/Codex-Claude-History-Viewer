@@ -2,12 +2,12 @@
   "scope": "Synthetic Linux machine acceptance. Independent human U1 remains pending.",
   "new_interface": {
     "quality_artifact": "quality-final.json",
-    "http_artifact": "http-final.json",
+    "http_artifact": "work/reuse-delivery/final/http-candidate.json",
     "status": "pass",
     "quality_status": "pass",
     "questions_sha256": "aa9be670049bd3ff4eb13e6f41eb327849cf43698d399a3085985d1ed4417b82",
     "dataset_sha256": "c20ee4310e622a55b3f3620d79f7d4acacc9267e76b1bf8c0e23b42500de2fec",
-    "source_sha256": "e8c39dadd18d252dd001068907b9190decb1d0c9dacfc558b74ee22ae5c397f1",
+    "source_sha256": "f20099f43ee31f44e30ee79717f43c352b876c1e8950c7e9943a42125baab0c5",
     "positive_hit_at_5": 0.8,
     "negative_passes": 4,
     "unchanged_failed_questions": [
@@ -16,14 +16,15 @@
       "Q19",
       "Q20"
     ],
-    "first_new_service_process_ms": 53.392855,
+    "first_new_service_process_ms": 54.76957,
     "os_cold_cache": "not_claimed",
-    "http_p95_ms": 129.150544,
+    "http_p95_ms": 120.506986,
     "warmups": 5,
     "samples": 100,
     "source_unchanged": true,
     "source_stable_during_run": true,
-    "server_processes_stopped": true
+    "server_processes_stopped": true,
+    "source_commit": "0bb034bd25c7ab6d2677d241dc087eb15313638b"
   },
   "retained_single_source": {
     "artifact": "retained-single-source.json",
@@ -92,6 +93,61 @@
     "overflow_420px": false,
     "overflow_480px": false,
     "browser_paint_ms": "unmeasured: browser read-only API does not expose performance",
-    "independent_trial": "pending"
+    "independent_trial": "pending",
+    "service_disconnected": "pass: explicit Failed to fetch and retry guidance after stopping owned server",
+    "clipboard_and_downloads": "Chrome keyboard, clipboard bytes, Markdown and JSON filesystem contents; two-source export confirmed; test downloads moved into work/reuse-delivery/browser-exports",
+    "source_commit": "7499157f01d917012a142086eda4c07a8d539596",
+    "final_delta": "0bb034b changes export offsets only; 21 focused HTTP/export regressions and full328 passed afterward"
+  },
+  "delivery": {
+    "candidate_commit": "0bb034bd25c7ab6d2677d241dc087eb15313638b",
+    "version": "1.3.0-rc.1",
+    "portable_sha256": "21232aea84342c9788c81b6d0200e94c5320ec957322039d7b50f736469f529d",
+    "trial_sha256": "1fb62066b96a19738eee835c61d162c8405cb62915b0996d1412f126718adfba",
+    "portable_install": {
+      "status": "passed",
+      "platform": "linux",
+      "python": "Python 3.12.3",
+      "version": "1.3.0-rc.1",
+      "runtime_identity": {
+        "version": "1.3.0-rc.1",
+        "source_commit": "0bb034bd25c7ab6d2677d241dc087eb15313638b"
+      },
+      "source_unchanged": true,
+      "existing_cache_unchanged": true,
+      "home_unchanged": true,
+      "pagination": "revision_bound",
+      "workspace_records": 5,
+      "cleanup_http": 405,
+      "upgrade_rollback": {
+        "status": "passed",
+        "previous_version": "1.2.0",
+        "before": "4",
+        "after": "4",
+        "rollback": "4"
+      }
+    },
+    "trial_install": {
+      "status": "passed",
+      "platform": "linux",
+      "python": "Python 3.12.3",
+      "version": "1.3.0-rc.1",
+      "runtime_identity": {
+        "version": "1.3.0-rc.1",
+        "source_commit": "0bb034bd25c7ab6d2677d241dc087eb15313638b"
+      },
+      "source_unchanged": true,
+      "existing_cache_unchanged": true,
+      "home_unchanged": true,
+      "pagination": "revision_bound",
+      "workspace_records": 12,
+      "cleanup_http": 405,
+      "upgrade_rollback": {
+        "status": "not_requested"
+      }
+    },
+    "published": false,
+    "runtime": "all task-owned verification servers stopped",
+    "material_preflight": "passed: synthetic data/browser preparation, not independent U1"
   }
 }

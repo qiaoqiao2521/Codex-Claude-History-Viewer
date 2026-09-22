@@ -2,14 +2,14 @@
 
 状态：**pending**。此文件是试用准备材料，不是验收结果。至少一名未参与开发的人独立完成五任务后才能填写 U1 结论；自动化、开发者演示、材料检查均不能替代。
 
-候选源码 commit / 试用包 SHA-256 / 应用 VERSION：**待冻结后构建；以实际生成的 `.manifest.json` 为准，不预填旧版本标识**。浏览器/Python/Linux：**待试用时填写**。本轮不宣称 Windows/WSL 或真实模型能力。
+候选源码 commit：`0bb034bd25c7ab6d2677d241dc087eb15313638b`；VERSION：`1.3.0-rc.1`；试用包 SHA-256：`1fb62066b96a19738eee835c61d162c8405cb62915b0996d1412f126718adfba`。包位置见 [交付记录](../progress.md)。2026-09-22 材料预检与干净安装通过，U1 未运行。浏览器/Python/Linux 仍由实际参与者填写；不宣称 Windows/WSL 或真实模型能力。
 
 ## 制作合成候选包
 
 先冻结待试用 commit，确认已包含本轮实现、`scripts/build_reuse_trial.py`、`scripts/reuse_fixture.py`、固定题集和本任务单；不要从旧版 tag 打包。把下列占位符替换成最终候选 commit，在仓库根目录执行单条命令：
 
 ```bash
-python3 scripts/build_reuse_trial.py --revision CANDIDATE_COMMIT --output /tmp/hv-u1-candidate.zip
+python3 scripts/build_reuse_trial.py --revision 0bb034b --output /tmp/hv-u1-candidate.zip
 ```
 
 脚本只从指定 commit 的受控源码清单打包，运行该提交中的题集生成器，再叠加两个文件工具会话。固定 E0 数据不修改；原始 demo 被全合成的 12 会话替换（Codex 6、Claude 6、3 个完整项目路径）。Claude 成功的 tool_result 显式记录 `is_error: false`；Codex 保留写入失败与测试失败。构建脚本本身必须与候选提交一致，输出已存在则拒绝覆盖。

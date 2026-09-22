@@ -42,7 +42,7 @@ Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56e
 
 ## Current Priority
 
-用户指定专注 History Viewer、以 Linux 为主，并授权一次性完成 [历史找回与复用计划](plans/history-reuse-product/task_plan.md)。五项增量已实现，当前收口候选 `1.3.0-rc.1` 的自动验收、浏览器验证与离线试用包。U1 按用户回复“稍后安排，U1 保留待试用”保持 pending；不以工程交付替代独立用户体验验收。v1.2.0 仍是既有稳定发行，不使用 Goal 或定时续跑。
+用户指定专注 History Viewer、以 Linux 为主，并授权一次性完成 [历史找回与复用计划](plans/history-reuse-product/task_plan.md)。五项增量已实现，候选 `1.3.0-rc.1` 的自动验收、浏览器验证、离线包与干净安装/回滚已完成（源码 0bb034b，本地交付）。U1 按用户回复“稍后安排，U1 保留待试用”保持 pending；不以工程交付替代独立用户体验验收。v1.2.0 仍是既有稳定发行，不使用 Goal 或定时续跑。
 
 ## Knowledge Map
 
