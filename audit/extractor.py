@@ -279,10 +279,16 @@ def _openclaw_events(obj: Dict[str, Any], line_no: int) -> Iterator[AuditEvent]:
     yield from _claude_events(obj, line_no)
 
 
+def _codebuddy_events(obj: Dict[str, Any], line_no: int) -> Iterator[AuditEvent]:
+    from .codebuddy import normalize_codebuddy_record
+    yield from _claude_events(normalize_codebuddy_record(obj), line_no)
+
+
 _NORMALISERS = {
     "codex": _codex_events,
     "claude": _claude_events,
     "openclaw": _openclaw_events,
+    "codebuddy": _codebuddy_events,
 }
 
 
@@ -751,6 +757,9 @@ def extract_session_audit(
     parsing problem is recorded in ``payload.parse_errors`` instead of raising
     (plan 13.5).
     """
+    if source in ('gemini', 'pi', 'prime', 'copilot'):
+        from .extra_sources import extract_extra_audit
+        return extract_extra_audit(path, source, session_id_hint=session_id_hint, content=content)
     normaliser = _NORMALISERS.get(str(source or "").lower())
     if normaliser is None:
         # Unknown sources fall back to the codex shape which is the most common.
@@ -902,6 +911,7 @@ def _build_payload(
     has_interrupt_marker = False
     recent_results: List[bool] = []  # True = success, False = error (last N)
     last_tool_success = False
+    has_final_assistant_reply = False
 
     write_ops = 0
     edit_ops = 0
@@ -911,6 +921,15 @@ def _build_payload(
     for idx, ev in enumerate(events):
         evidence_index = ev.message_index if isinstance(ev.message_index, int) else idx
         message_count[ev.role] = message_count.get(ev.role, 0) + 1
+
+        # Normalizers supply conversation order (native sequence may differ
+        # from timestamps). A prior reply stops being final when work resumes;
+        # metadata and empty reasoning do not constitute new activity.
+        has_text = bool((ev.text or "").strip())
+        if ev.kind in ("tool_use", "tool_result") or (ev.kind == "reasoning" and has_text):
+            has_final_assistant_reply = False
+        elif ev.kind == "message" and (ev.role == "user" or has_text):
+            has_final_assistant_reply = ev.role == "assistant" and has_text
 
         # Interrupt detection works on any text-bearing event.
         if ev.text and scoring.looks_interrupted(ev.text):
@@ -938,7 +957,7 @@ def _build_payload(
                             summary=_truncate(stripped, 180),
                             confidence="high",
                             message_index=evidence_index,
-                            raw_ref={"line_no": ev.line_no},
+                            raw_ref=ev.raw_ref or {"line_no": ev.line_no},
                         ).to_dict()
                     )
             elif ev.role == "assistant":
@@ -964,7 +983,7 @@ def _build_payload(
                         confidence="high",
                         tool_name=tool_name,
                         message_index=evidence_index,
-                        raw_ref={"line_no": ev.line_no},
+                        raw_ref=ev.raw_ref or {"line_no": ev.line_no},
                     ).to_dict()
                 )
                 tool_evidence_count += 1
@@ -1045,7 +1064,7 @@ def _build_payload(
                             summary=_truncate(text, MAX_ERROR_SAMPLE_CHARS),
                             confidence="high",
                             message_index=evidence_index,
-                            raw_ref={"line_no": ev.line_no},
+                            raw_ref=ev.raw_ref or {"line_no": ev.line_no},
                         )
                     )
             # inferred file paths from build/test output (plan 9.3)
@@ -1091,7 +1110,7 @@ def _build_payload(
         has_interrupt_marker=has_interrupt_marker,
         recent_tool_errors=recent_errors,
         last_tool_success=last_tool_success,
-        has_final_assistant_reply=bool(last_assistant),
+        has_final_assistant_reply=has_final_assistant_reply,
         has_write_like_tools=bool(file_stats),
         has_test_or_build=bool(command_intents.get("TEST") or command_intents.get("BUILD")),
         is_exploration_only=is_exploration_only,

@@ -28,6 +28,10 @@ A dependency-free Python HTTP server indexes local Agent histories into per-sour
 
 `history_core/sources.py` parses Codex, Claude, and OpenClaw JSONL into a shared session/message shape. `Indexer` persists derived records in local SQLite caches. `OpenCodeIndexer` and `HermesStateIndexer` read their tools' existing SQLite state through source-specific adapters.
 
+Linux source expansion uses `providers.py` for shared discovery/identity, `codebuddy.py` for native CBC envelopes, `extra_parsers.py` for Gemini recording updates and pi/Prime trees, and `copilot.py` for event logs. Gemini `.json` and `.jsonl` share one materializer; migrated copies are filtered. `zcode.py` reuses the OpenCode part/audit renderer with sequence ordering and a connection-local TEMP VIEW to project message metrics; it never changes the native schema. See [paths and capability matrix](local-cli-sources.md).
+
+`agy.py` decodes verified protobuf fields from AGY/Antigravity SQLite steps into a disposable in-memory session/message index. The two roots retain separate identities. Bounded DB/WAL copies are opened in private temporary directories because even SQLite `mode=ro` can update source SHM read marks. A refresh shares a physical read budget; source revisions fingerprint every conversation DB/WAL. Partial or unsupported legacy content is visible in coverage diagnostics, search warnings and session headers. Audit refs use native step indices, not fabricated JSONL lines; selected-fragment exports and token accounting remain unsupported.
+
 ### Source routing and HTTP API
 
 `SourceBackend` binds a runtime system and source to an indexer. `Handler` routes `/api/{system}/{source}/...` requests and serves the static application. The runtime exposes Windows/WSL or Linux according to the host rather than presenting unavailable systems.
@@ -35,6 +39,8 @@ A dependency-free Python HTTP server indexes local Agent histories into per-sour
 ### Audit layer
 
 `audit/extractor.py` normalizes transcript events and produces evidence-backed `AuditPayload` objects. Classification and scoring remain deterministic. `audit/ai_audit.py` and `audit/llm_client.py` provide opt-in semantic interpretation from compact payloads; the raw transcript is not the default AI input.
+
+Audit schema version 4 revokes a previous final answer when later meaningful user, tool or reasoning activity exists. A trailing failed tool result cannot inherit an earlier completed outcome; historical failures remain visible after a successful retry.
 
 ### Handoff layer
 
@@ -179,6 +185,8 @@ identity through /api/version.
 `history_core/reuse.py` provides bounded search, exact-cwd projects and timelines over existing indexes. `/api/reuse/{search,projects,timeline}` returns a cursor tied to all participating source revisions. Query failures stop continuation; native SQLite stores retain explicit capability limits. Hermes transport labels are not project directories.
 
 Search snippets carry cached message offsets plus a source revision, checked before and after deep-link message reads. Audit event offsets are different: `/api/reuse/raw` reads an exact JSONL line from the same bounded source snapshot and validates content/context revision. `provenance.selected_snapshot` is shared with Web/Reader audit and selected exports; no second transcript parser or source writes are introduced.
+
+Gemini legacy JSON uses `/messages/<index>` pointers instead of invented line numbers. Its JSONL updates, pi branches and Copilot event dedup require complete bounded materialization. Optional default stores that never existed and have no cache are excluded from cross-source query errors; explicit configuration errors and lost history still prevent misleading pagination.
 
 `file_history.py` extracts only explicit file tool inputs/results from a revision-bound snapshot. Explicit patches or old/new replacements can be shown; unrelated tests and current disk state are not inferred. Native databases without indexed file sets report unsupported instead of silently returning complete-looking empty history.
 

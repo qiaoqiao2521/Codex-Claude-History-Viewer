@@ -5,6 +5,7 @@ import shlex
 import sqlite3
 
 from .reuse import query_budget
+from .providers import SOURCES, FILE_SOURCES
 
 ERRORS = {
     'FileNotFoundError': ('not_found', 'source_not_found', '未发现历史。检查来源路径，或先运行对应 Agent 创建会话。'),
@@ -13,6 +14,32 @@ ERRORS = {
     'DatabaseError': ('unsupported', 'invalid_database', '数据库格式不可读取。检查来源路径，保留原数据库。'),
     'OperationalError': ('unsupported', 'source_schema_unavailable', '数据库暂不可读或格式不支持。关闭占用后重试并核对来源版本。'),
 }
+
+
+def optional_missing_source(backend):
+    """An unused default store isn't a failed member of an all-source query.
+
+    Explicit configuration and lost previously indexed history remain errors.
+    The diagnostic card still reports the absent path for future setup.
+    """
+    if not getattr(backend, 'optional_discovery', False) or getattr(backend, 'last_refreshed_at', None):
+        return False
+    try:
+        Path(backend.sessions_dir).stat()
+        return False
+    except FileNotFoundError:
+        pass
+    except OSError:
+        return False
+    idx = getattr(backend, 'indexer', None)
+    if idx is None:
+        return True
+    try:
+        table = 'session' if idx.source in ('opencode', 'zcode') else 'sessions'
+        with query_budget(idx) as conn:
+            return conn.execute('SELECT 1 FROM ' + table + ' LIMIT 1').fetchone() is None
+    except sqlite3.Error:
+        return False
 
 
 def inspect_backend(system, source, backend):
@@ -33,7 +60,7 @@ def inspect_backend(system, source, backend):
             status,code,next_step = ERRORS.get(kind,('error','refresh_failed','读取失败。检查来源后重试；先前缓存不代表当前数据。'))
             result.update(status=status,error_code=code,next_step=next_step)
         if idx is not None:
-            table = 'session' if source=='opencode' else 'sessions'
+            table = 'session' if source in ('opencode','zcode') else 'sessions'
             with query_budget(idx) as conn:
                 result['count']=int(conn.execute('SELECT COUNT(*) FROM '+table).fetchone()[0])
         if not error and idx is not None:
@@ -49,9 +76,21 @@ def inspect_backend(system, source, backend):
         state,code,message=ERRORS.get(kind,('error','source_unavailable','检查来源路径与权限后重试。'))
         result.update(status=state,error_code=code,next_step=message)
         if result['last_refreshed_at']: result['status']='stale'
-    flag={'codex':'--codex-dir','claude':'--claude-dir','openclaw':'--openclaw-dir','opencode':'--opencode-state-db','hermes':'--hermes-state-db'}.get(source)
+    flag={**{src:'--'+src+'-dir' for src in FILE_SOURCES}, **{src:'--'+src+'-state-db' for src in ('opencode','hermes','zcode','agy','antigravity')}}.get(source)
+    coverage = getattr(idx, '_coverage', None)
+    if isinstance(coverage, dict):
+        counts = {}
+        for item in coverage.values():
+            state = item.get('content_status', 'unknown')
+            counts[state] = counts.get(state, 0) + 1
+        result['content_coverage'] = counts
+        if any(key != 'decoded_text' and count for key, count in counts.items()) and result['status'] in ('ready', 'empty'):
+            result['status'] = 'partial'
+            result['next_step'] = '已解码 %d 个会话；其余会话有不支持的步骤、旧格式或缺失正文，结果会逐项标记。' % counts.get('decoded_text', 0)
     if flag:
-        location = backend.root_dir if source in ('codex','claude','openclaw') else root
+        location = backend.root_dir if source in FILE_SOURCES else root
+        flag = getattr(backend, 'source_flag', flag)
+        location = getattr(backend, 'source_argument', location)
         result['command']='python3 app.py '+flag+' '+shlex.quote(str(location))
     return result
 
@@ -59,7 +98,7 @@ def inspect_backend(system, source, backend):
 def health(backends, *, demo=False, version='unknown', system='linux'):
     sources=[inspect_backend(sys,src,backend) for (sys,src),backend in sorted(backends.items())]
     present={item['source'] for item in sources if item['system']==system}
-    for src in ('codex','claude','openclaw','opencode','hermes'):
+    for src in SOURCES:
         if src not in present:
             sources.append({'system':system,'source':src,'status':'not_found','path':None,'count':None,
                             'error_code':'not_configured','freshness':'unknown','last_refreshed_at':None,

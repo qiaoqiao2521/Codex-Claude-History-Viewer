@@ -6,11 +6,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .reader import HistoryReader
+from .providers import SOURCES, canonical_source
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--source", choices=("codex", "claude", "openclaw", "opencode", "hermes"), required=True)
+    parser.add_argument("--source", type=canonical_source, choices=SOURCES, required=True)
     parser.add_argument("--source-path", type=Path, required=True, help="Explicit sessions directory or native SQLite file")
     parser.add_argument("--data-dir", type=Path, help="Required separate cache directory for JSONL sources")
     commands = parser.add_subparsers(dest="command", required=True)

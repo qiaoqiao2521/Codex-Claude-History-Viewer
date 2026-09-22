@@ -145,6 +145,7 @@ def build_handoff_payload(
             "id": item.get("id"),
             "message_index": item.get("message_index"),
             "line_no": (item.get("raw_ref") or {}).get("line_no"),
+            "raw_ref": dict(item.get("raw_ref") or {}),
             "summary": _text(item.get("summary"), 180),
         })
         if len(evidence_refs) >= 10:

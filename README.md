@@ -1,6 +1,6 @@
 # Codex & Claude History Viewer
 
-Local-first, dependency-free web viewer for **Codex CLI**, **Claude Code**, **OpenClaw**, **OpenCode**, and **Hermes** session history.
+Local-first, dependency-free web viewer for **Codex CLI**, **Claude Code**, **CodeBuddy (cbc)**, **Gemini CLI**, **pi / Prime Agent**, **GitHub Copilot**, **ZCode**, **AGY CLI / Antigravity**, **OpenCode**, **OpenClaw**, and **Hermes** session history. Format-specific limits are shown explicitly.
 
 - Browse sessions and projects (work dirs)
 - Search across sources by keyword, project and date; open matching messages with revision checks
@@ -10,7 +10,7 @@ Local-first, dependency-free web viewer for **Codex CLI**, **Claude Code**, **Op
 - Filter messages by role, and search within a session (highlight + next/prev)
 - Sort sidebar by **start time**, **last activity**, or **value signal**
 - Audit badges per session: files touched, tool count, remote/test/deploy/debug activity, friction, outcome, value score
-- **⚡ Usage** panel: token totals per day / project / session (Codex + Claude + OpenCode)
+- **⚡ Usage** panel: provider-reported token totals per day / project / session where available
 - **📰 Briefing** panel: daily work summary with highlights, blocked sessions, deliverables, and an optional LLM narrative
 - **🗒 Plans** panel: planning files (`task_plan.md` / `progress.md` / `findings.md`) near the session, read-only
 - Copy compact or standard agent handoffs with intent, constraints, changes, verification, remaining work, and evidence references — plus a themed markdown preview, rich-text copy, and `.md` / `.html` export
@@ -36,7 +36,7 @@ Codex CLI and Claude Code both generate local, machine-readable transcripts (JSO
 - compare sessions across days/projects
 - keep everything **local** (no uploads by default)
 
-Current checkout: **1.3.0-rc.1 candidate**. Engineering acceptance and U1 status: [history reuse plan](plans/history-reuse-product/progress.md). Independent Linux user trial is pending; stable v1.2.0 remains available.
+Current checkout: **1.3.0-rc.2 candidate** with [local CLI source expansion](plans/local-cli-sources/progress.md). Earlier reuse acceptance and U1 status: [history reuse plan](plans/history-reuse-product/progress.md). Independent Linux user trial is pending; stable v1.2.0 remains available.
 
 ## Quick start
 
@@ -62,6 +62,8 @@ By default it reads:
 - OpenClaw logs: `~/.openclaw/agents`
 - OpenCode state DB: auto-detected from `~/.local/share/opencode/opencode.db`
 - Hermes state DB: auto-detected from `~/.hermes/state.db` or `../hermes-agent/.hermes-home/state.db`
+
+Linux also discovers CodeBuddy, Gemini, pi/Prime, Copilot (including Snap), ZCode and AGY/Antigravity history. See [local CLI paths, configuration and capability limits](docs/local-cli-sources.md).
 
 Indexes (SQLite) are stored next to `app.py` (the repo folder) unless you set `--data-dir`.
 

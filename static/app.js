@@ -119,7 +119,7 @@ let availableSourcesBySystem = new Map([
   ["linux", ["codex", "claude", "openclaw", "opencode"]],
 ]);
 const SYSTEM_ORDER = ["windows", "wsl", "linux"];
-const SOURCE_ORDER = ["codex", "claude", "openclaw", "opencode", "hermes"];
+const SOURCE_ORDER = ["codex", "claude", "openclaw", "opencode", "codebuddy", "gemini", "pi", "zcode", "copilot", "prime", "agy", "antigravity", "hermes"];
 const LIST_RELOAD_DEBOUNCE_MS = 200;
 const SESSION_SEARCH_DEBOUNCE_MS = 220;
 const MESSAGE_RENDER_PAGE_SIZE = 200;
@@ -414,7 +414,15 @@ function getSourceLabel(source = currentSource) {
   if (source === "openclaw") return "OpenClaw";
   if (source === "opencode") return "OpenCode";
   if (source === "hermes") return "Hermes";
-  return "Codex";
+  if (source === "codebuddy") return "CodeBuddy (cbc)";
+  if (source === "gemini") return "Gemini CLI";
+  if (source === "pi") return "pi";
+  if (source === "prime") return "Prime Agent";
+  if (source === "copilot") return "GitHub Copilot";
+  if (source === "zcode") return "ZCode";
+  if (source === "agy") return "AGY CLI";
+  if (source === "antigravity") return "Antigravity";
+  return source === "codex" ? "Codex" : source;
 }
 
 function getResumeCommandLabels(system = currentSystem) {
@@ -488,6 +496,10 @@ function buildResumeInvocation(system, source, sessionId) {
   }
   if (source === "codex") return `codex resume ${sessionId}`;
   if (source === "claude") return `claude -r ${sessionId} --dangerously-skip-permissions`;
+  if (source === "codebuddy") {
+    if (!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(sessionId)) return "";
+    return `cbc --resume ${sessionId}`;
+  }
   return "";
 }
 
@@ -2378,6 +2390,13 @@ function renderSessionHeader(session) {
   const parts = [formatTime(session.start_ts_ms)];
   if (session.cwd) {
     parts.push(session.cwd);
+  }
+  if (session.content_status === "unsupported_legacy_protobuf") {
+    parts.push("仅元数据：旧格式正文尚不支持读取");
+  } else if (session.content_status === "source_missing") {
+    parts.push("仅元数据：原始正文文件缺失");
+  } else if (session.content_status === "partial_unsupported_steps") {
+    parts.push("正文部分可读：存在尚未解码的记录");
   }
   metaEl.textContent = parts.filter(Boolean).join(" • ");
 

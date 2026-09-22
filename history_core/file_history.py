@@ -36,6 +36,9 @@ def _tool_records(raw, source):
             continue
         if not isinstance(record, dict):
             continue
+        if source == 'codebuddy':
+            from audit.codebuddy import normalize_codebuddy_record
+            record = normalize_codebuddy_record(record)
         if source == "codex":
             payload = record.get("payload")
             if record.get("type") != "response_item" or not isinstance(payload, dict):
@@ -87,11 +90,11 @@ def _result_status(result, source):
         return "success" if int(exit_match.group(1)) == 0 else "failed"
     if re.search(r"(?im)^\s*(?:error\s*:|failed\b|apply_patch verification failed\b)", text):
         return "failed"
-    if source in ("claude", "openclaw") and result.get("is_error") is False:
+    if source in ("claude", "openclaw", "codebuddy") and result.get("is_error") is False:
         return "success"
     if re.search(r"(?im)^\s*Success\.\s*Updated the following files:", text):
         return "success"
-    if source in ("claude", "openclaw") and re.search(
+    if source in ("claude", "openclaw", "codebuddy") and re.search(
             r"(?i)(?:file created successfully at|file .* has been (?:updated|written) successfully)", text):
         return "success"
     return "unknown"
@@ -161,7 +164,7 @@ def file_changes(indexer, session_id, project, file_path, provenance):
     not proof the change was applied. Source/diff limits fail explicitly.
     """
     source = getattr(indexer, "source", "")
-    if source not in ("codex", "claude", "openclaw") or getattr(indexer, "sessions_dir", None) is None:
+    if source not in ("codex", "claude", "openclaw", "codebuddy") or getattr(indexer, "sessions_dir", None) is None:
         raise ValueError("file_history_source_unsupported")
     if not isinstance(project, str) or not isinstance(file_path, str) or not file_path:
         raise ValueError("file_history_path_required")

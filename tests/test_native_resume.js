@@ -22,4 +22,8 @@ assert.match(context.buildResumeCommands('wsl', 'opencode', '/tmp/a b', id).ps, 
 assert.match(context.buildResumeCommands('wsl', 'opencode', '/tmp/a b', id).wsl, /opencode --session ses_Example123$/);
 assert.equal(context.buildResumeInvocation('linux', 'codex', 'abc'), 'codex resume abc');
 assert.equal(context.buildResumeInvocation('linux', 'hermes', 'abc'), '');
+assert.equal(context.buildResumeInvocation('linux', 'codebuddy', 'abc-123'), 'cbc --resume abc-123');
+for (const bad of ['--help', 'a;echo hi', 'a$(id)', 'a\nwhoami']) {
+  assert.equal(context.buildResumeInvocation('linux', 'codebuddy', bad), '');
+}
 console.log('Native resume commands: passed');

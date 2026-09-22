@@ -162,7 +162,7 @@ def selection_bundle(indexers, selections):
                    for key in ("content_revision", "context_revision")):
             raise ValueError("selection_revision_required")
         system, source, indexer = _resolve(indexers, selection)
-        if source not in ("codex", "claude", "openclaw") or getattr(indexer, "sessions_dir", None) is None:
+        if getattr(indexer, "sessions_dir", None) is None:
             raise ValueError("selection_revision_unsupported: native database snapshot unavailable")
         store = source_store_id(system, source, indexer)
         identity = (system, source, store, session_id, evidence_id or message_index)
@@ -242,6 +242,20 @@ def raw_record(indexer, session_id, binding, *, evidence_id=None, line_no=None):
         if evidence is None:
             raise ValueError("raw_evidence_unavailable")
         line_no = (evidence.get("raw_ref") or {}).get("line_no")
+        pointer = (evidence.get("raw_ref") or {}).get("json_pointer")
+        if provenance.get('locator', {}).get('format') == 'json' and pointer:
+            match = re.fullmatch(r'/messages/(\d+)', pointer)
+            if not match:
+                raise ValueError('raw_pointer_unavailable')
+            try:
+                record = json.loads(raw)['messages'][int(match[1])]
+            except (ValueError, KeyError, IndexError, TypeError):
+                raise ValueError('raw_pointer_unavailable') from None
+            value = json.dumps(record, ensure_ascii=False, indent=2)
+            return {'text': value[:16000], 'truncated': len(value) > 16000, 'json_pointer': pointer,
+                    'line_no': None, 'provenance': provenance, 'representation': 'raw_json_record', 'context_only': True}
+    if provenance.get('locator', {}).get('format') == 'json':
+        raise ValueError('raw_pointer_unavailable')
     try:
         line_no = int(line_no)
     except (ValueError, TypeError):

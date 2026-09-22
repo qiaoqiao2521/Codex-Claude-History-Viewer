@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 from . import service
+from .providers import SOURCES, NATIVE_SOURCES, canonical_source, parser_for, parser_version, include_file, file_suffixes, native_indexer
 from .sources import (Indexer, OpenCodeIndexer, HermesStateIndexer,
                       parse_codex_session_file, parse_claude_session_file,
                       parse_openclaw_session_file)
@@ -17,17 +18,18 @@ class HistoryReader:
     """Explicit refresh and reads, with no forwarded legacy mutation methods."""
 
     def __init__(self, source, source_path, data_dir=None):
-        if source not in ('codex', 'claude', 'openclaw', 'opencode', 'hermes'):
+        source = canonical_source(source)
+        if source not in SOURCES:
             raise ValueError('unsupported_source')
         self.__source = source
         self.__root = Path(source_path).resolve(strict=True)
-        self.__native = source in ('opencode', 'hermes')
+        self.__native = source in NATIVE_SOURCES
         self.__indexer = None
         self.__cache = None
         self.__page_revision = None
         self.__validate_source()
         if self.__native:
-            self.__indexer = (OpenCodeIndexer if source == 'opencode' else HermesStateIndexer)(self.__root)
+            self.__indexer = native_indexer(source, self.__root)
         else:
             if data_dir is None:
                 raise ValueError('sessions_directory_and_data_dir_required')
@@ -40,18 +42,12 @@ class HistoryReader:
             self.__cache = data / ('machine-%s-%s' % (source, key))
             self.__validate_cache()
             self.__cache.mkdir(parents=True, exist_ok=True)
-            parsers = {'codex': parse_codex_session_file, 'claude': parse_claude_session_file,
-                       'openclaw': parse_openclaw_session_file}
             self.__indexer = Indexer(self.__root, self.__cache, source,
-                parse_file_fn=parsers[source], file_filter_fn=self.__include,
-                parser_version=1 if source == 'openclaw' else 5)
+                parse_file_fn=parser_for(source), file_filter_fn=self.__include,
+                parser_version=parser_version(source))
 
     def __include(self, path):
-        if self.__source == 'claude':
-            return not path.name.startswith('agent-')
-        if self.__source == 'openclaw':
-            return path.parent.name == 'sessions'
-        return True
+        return include_file(self.__source, path)
 
     def __validate_cache(self):
         if self.__cache is None:
@@ -85,7 +81,7 @@ class HistoryReader:
                     raise ValueError('source_symlink_not_allowed')
             for name in files:
                 p = Path(directory) / name
-                if p.suffix == '.jsonl' and self.__include(p):
+                if p.suffix in file_suffixes(self.__source) and self.__include(p):
                     with p.open('rb'):
                         pass
 
@@ -122,7 +118,11 @@ class HistoryReader:
                 'background_refresh': False, 'refresh_policy': 'explicit'}
 
     def __revision(self):
-        if self.__native:
+        if callable(getattr(self.__indexer, 'source_revision', None)):
+            revision = self.__indexer.source_revision()
+            if getattr(self.__indexer, '_revision', revision) != revision:
+                raise ValueError('source_changed_since_index: refresh required')
+        elif self.__native:
             parts = []
             for path in (self.__root, Path(str(self.__root) + '-wal')):
                 try:

@@ -16,6 +16,7 @@ import time
 from . import service
 from .evidence import source_store_id
 from .sources import _escape_sql_like, deserialize_audit_summary
+from .providers import SOURCES, canonical_source, uses_message_index
 
 MAX_CANDIDATES = 500
 MAX_PROJECTS = 1000
@@ -34,7 +35,11 @@ def index_revision(indexer):
     if root.is_symlink():
         raise ValueError('source_symlink_not_allowed')
     with indexer.lock:
-        if getattr(indexer, 'sessions_dir', None) is not None:
+        if callable(getattr(indexer, 'source_revision', None)):
+            value = indexer.source_revision()
+            if getattr(indexer, '_revision', value) != value:
+                raise ValueError('source_changed_since_index: refresh required')
+        elif getattr(indexer, 'sessions_dir', None) is not None:
             value = indexer.conn.execute("SELECT value FROM reader_state WHERE key='revision'").fetchone()[0]
             value = [value, indexer.conn.execute('PRAGMA data_version').fetchone()[0], indexer.conn.total_changes]
         else:
@@ -118,6 +123,19 @@ def _check_revision(indexers, original, initial_errors):
     if now != original: raise ValueError('index_revision_changed: restart search')
 
 
+def _content_coverage(result, indexers):
+    warnings = []
+    for system, source, idx in indexers:
+        incomplete = sum(item.get('content_status') != 'decoded_text'
+                         for item in getattr(idx, '_coverage', {}).values())
+        if incomplete:
+            warnings.append({'system': system, 'source': source, 'incomplete_sessions': incomplete})
+    if warnings:
+        result['partial'] = True
+        result['content_warnings'] = warnings
+    return result
+
+
 def _terms(query):
     query = str(query or '').strip()
     if len(query) > 300: raise ValueError('query_too_long')
@@ -149,7 +167,7 @@ def _path_match(raw, target, cwd):
 
 def _candidates(idx, query='', project=None, start_ms=None, end_ms=None, file_path=None):
     _, terms = _terms(query)
-    native = getattr(idx, 'sessions_dir', None) is None
+    native = not uses_message_index(idx)
     args = []
     if not native:
         text = "COALESCE(s.search_blob,'')"
@@ -207,8 +225,8 @@ def _candidates(idx, query='', project=None, start_ms=None, end_ms=None, file_pa
 def _snippets(idx, sid, query):
     query, terms = _terms(query)
     matches = []
-    native = getattr(idx, 'sessions_dir', None) is None
-    if native and idx.source == 'opencode':
+    native = not uses_message_index(idx)
+    if native and idx.source in ('opencode', 'zcode'):
         from .provenance import validate_native_size
         validate_native_size(idx, sid)
         # Native flattener has a byte/row guard before invocation.
@@ -241,6 +259,7 @@ def _snippets(idx, sid, query):
 
 def _item(system, source, idx, row):
     return {'system': system, 'source': source, 'store_id': source_store_id(system, source, idx),
+            'content_status': getattr(idx, '_coverage', {}).get(str(row['id']), {}).get('content_status'),
             'id': str(row['id']), 'title': row.get('title') or str(row['id']),
             'project': '' if source == 'hermes' else (row.get('cwd') or ''), 'updated_at': row.get('end_ts_ms') or row.get('start_ts_ms'),
             'score': row.get('relevance', 0)}
@@ -250,7 +269,8 @@ def search(indexers, *, query, project=None, source=None, start_ms=None, end_ms=
     limit = _limit(limit);query,_ = _terms(query)
     errors = list(errors or [])
     if not query: raise ValueError('query_required')
-    if source and source not in ('codex','claude','openclaw','opencode','hermes'):
+    source = canonical_source(source)
+    if source and source not in SOURCES:
         raise ValueError('invalid_source')
     selected = [x for x in indexers if not source or x[1] == source]
     errors = [e for e in errors if not source or e.get('source') == source]
@@ -283,7 +303,7 @@ def search(indexers, *, query, project=None, source=None, start_ms=None, end_ms=
             item['snippets'] = [];item['snippet_status'] = error_code(exc)
             result['partial'] = True
     _check_revision(selected,revision,before_errors)
-    return result
+    return _content_coverage(result, ready)
 
 
 def evidence_item(system, source, idx, sid):
@@ -308,9 +328,9 @@ def projects(indexers, *, cursor=None, limit=20, errors=None):
     groups={};truncated=False
     for system,src,idx in ready:
         try:
-            native=getattr(idx,'sessions_dir',None) is None
+            native=not uses_message_index(idx)
             if not native: table,cwd,ts='sessions',"COALESCE(cwd,'')",'end_ts_ms'
-            elif src=='opencode': table,cwd,ts='session',"COALESCE(directory,'')",'time_updated'
+            elif src in ('opencode','zcode'): table,cwd,ts='session',"COALESCE(directory,'')",'time_updated'
             else: table,cwd,ts='sessions',"''",'COALESCE(ended_at,started_at)*1000'
             with query_budget(idx) as conn:
                 rows=conn.execute(f'SELECT {cwd} AS project,COUNT(*) AS n,MAX({ts}) AS latest FROM {table} GROUP BY {cwd} ORDER BY latest DESC,project ASC LIMIT ?', (MAX_PROJECTS+1,)).fetchall()
@@ -364,4 +384,4 @@ def timeline(indexers, *, project, file_path=None, cursor=None, limit=20, errors
                 result['partial'] = True
                 result['errors'].append({'system': item['system'], 'source': item['source'], 'error': error_code(exc)})
     _check_revision(indexers,revision,before_errors)
-    return result
+    return _content_coverage(result, ready)

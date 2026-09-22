@@ -25,7 +25,7 @@ from .schema import AuditPayload, to_llm_audit_input
 # Bump when the payload shape / scoring formula changes enough that cached
 # audits should be regenerated. The Indexer compares this against the stored
 # ``audit_version`` column to decide whether to re-extract.
-AUDIT_VERSION = 3
+AUDIT_VERSION = 4
 
 # Audit-related columns added to the existing ``sessions`` table (plan 16.1).
 AUDIT_COLUMNS = {

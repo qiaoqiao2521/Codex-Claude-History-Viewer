@@ -12,6 +12,7 @@ from datetime import datetime, timezone, time as dt_time
 from pathlib import Path
 from audit import AUDIT_VERSION, build_audit_from_events, build_audit_for_file, deserialize_audit_summary, patch_db_for_audit, serialize_audit_fields
 from audit.schema import AuditEvent
+from .providers import file_suffixes
 
 MAX_SEARCH_CHARS = 2_000_000
 DEFAULT_LIMIT = 200
@@ -1974,7 +1975,7 @@ class Indexer:
         for directory, dirs, files in os.walk(self.sessions_dir, onerror=fail):
             for name in files:
                 path = Path(directory) / name
-                if path.suffix == ".jsonl" and self._file_filter_fn(path):
+                if path.suffix in file_suffixes(self.source) and self._file_filter_fn(path):
                     session_files.append(path)
 
         def fingerprint(path):
@@ -3471,11 +3472,14 @@ class OpenCodeIndexer:
             return None
         return (role, kind, text, part_time_ms, None)
 
+    def _part_order_sql(self):
+        return 'm.time_created ASC, p.time_created ASC, p.id ASC'
+
     def _load_flat_messages(self, session_id):
         """Load + flatten all parts for a session, in time order."""
         with self.lock:
             rows = self.conn.execute(
-                """
+                f"""
                 SELECT
                     p.id            AS part_id,
                     p.message_id    AS message_id,
@@ -3486,7 +3490,7 @@ class OpenCodeIndexer:
                 FROM part p
                 JOIN message m ON m.id = p.message_id
                 WHERE p.session_id = ?
-                ORDER BY m.time_created ASC, p.time_created ASC, p.id ASC
+                ORDER BY {self._part_order_sql()}
                 """,
                 (session_id,),
             ).fetchall()
@@ -3515,14 +3519,14 @@ class OpenCodeIndexer:
     def _load_audit_events(self, session_id):
         with self.lock:
             rows = self.conn.execute(
-                """
+                f"""
                 SELECT p.id AS part_id, p.time_created AS part_ts_ms,
                        p.data AS part_data, m.data AS message_data,
                        m.time_created AS message_ts_ms
                 FROM part p
                 JOIN message m ON m.id = p.message_id
                 WHERE p.session_id = ?
-                ORDER BY m.time_created ASC, p.time_created ASC, p.id ASC
+                ORDER BY {self._part_order_sql()}
                 """,
                 (session_id,),
             ).fetchall()
@@ -3613,7 +3617,7 @@ class OpenCodeIndexer:
         payload = build_audit_from_events(
             self._load_audit_events(session_id),
             session_id=str(session_id),
-            source="opencode",
+            source=self.source,
             model=self._model_id(session["model"]),
             started_at=parse_ts(session["time_created"]) or 0,
             ended_at=parse_ts(session["time_updated"]) or 0,

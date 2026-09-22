@@ -10,6 +10,7 @@ if str(REPO_DIR) not in sys.path:
 
 from audit import (  # noqa: E402
     AUDIT_VERSION,
+    build_audit_from_events,
     build_audit_for_file,
     deserialize_audit_summary,
     patch_db_for_audit,
@@ -18,6 +19,7 @@ from audit import (  # noqa: E402
 from audit.command_classifier import classify_command  # noqa: E402
 from audit.extractor import extract_session_audit  # noqa: E402
 from audit.scoring import compute_value_score  # noqa: E402
+from audit.schema import AuditEvent  # noqa: E402
 
 
 def _codex_line(ts, payload_type, **kwargs):
@@ -89,10 +91,16 @@ class CodexExtractorTests(unittest.TestCase):
         self.assertIsNotNone(payload)
         self.assertIn("TEST", payload.command_intents)
 
-    def test_outcome_is_completed_for_successful_session(self):
+    def test_successful_tools_without_final_reply_are_incomplete(self):
         payload = extract_session_audit(self.path, "codex")
         self.assertIsNotNone(payload)
-        self.assertIn(payload.outcome_signal, ("completed", "partially_completed"))
+        self.assertEqual(payload.outcome_signal, "incomplete")
+
+    def test_final_reply_after_successful_tools_completes_session(self):
+        with self.path.open('a', encoding='utf-8') as stream:
+            stream.write(_codex_line("2026-01-01T10:03:00.000Z", "message", role="assistant",
+                content=[{"type": "output_text", "text": "Implemented the parser and verified all three tests."}]) + '\n')
+        self.assertEqual(extract_session_audit(self.path, 'codex').outcome_signal, 'completed')
 
     def test_value_score_positive(self):
         payload = extract_session_audit(self.path, "codex")
@@ -135,10 +143,11 @@ class ClaudeExtractorTests(unittest.TestCase):
         self.assertIsNotNone(payload)
         self.assertGreaterEqual(payload.errors["count"], 1)
 
-    def test_outcome_reflects_error_or_completion(self):
+    def test_failed_tool_after_assistant_preamble_is_incomplete(self):
         payload = extract_session_audit(self.path, "claude")
         self.assertIsNotNone(payload)
-        self.assertIn(payload.outcome_signal, ("errored", "completed", "partially_completed", "unknown"))
+        self.assertEqual(payload.outcome_signal, "incomplete")
+
 
     def test_explicit_exit_codes_survive_result_summary_truncation(self):
         from audit.handoff import build_handoff_payload
@@ -175,6 +184,66 @@ class ClaudeExtractorTests(unittest.TestCase):
         payload = extract_session_audit(self.path, "claude")
         self.assertIsNone(payload.commands[0]["exit_code"])
         self.assertEqual(payload.commands[0]["status"], "unknown")
+
+
+class FinalReplyOrderTests(unittest.TestCase):
+    def audit(self, tail):
+        # Sequence, not timestamps, is the normalizer's authoritative order.
+        events = [
+            AuditEvent(300, 'user', 'message', text='Run the tests.'),
+            AuditEvent(200, 'assistant', 'message', text='I will run the tests.'),
+            AuditEvent(100, 'assistant', 'tool_use', tool_name='bash', tool_args={'command': 'pytest'}),
+            *tail,
+        ]
+        return build_audit_from_events(events, session_id='ordered', source='synthetic')
+
+    def failure(self):
+        return AuditEvent(50, 'tool', 'tool_result', tool_result_text='AssertionError: failed test',
+            tool_result_error=True, tool_result_exit_codes=[1])
+
+    def test_final_failed_tool_keeps_error_evidence_and_incomplete(self):
+        payload = self.audit([self.failure()])
+        self.assertEqual(payload.outcome_signal, 'incomplete')
+        self.assertEqual(payload.errors['count'], 1)
+        self.assertIn('AssertionError', payload.errors['samples'][0])
+        self.assertTrue(any(item['type'] == 'error' for item in payload.evidence))
+        self.assertEqual(payload.commands[0]['status'], 'fail')
+        self.assertEqual(payload.last_assistant_reply, 'I will run the tests.')
+
+    def test_success_or_pending_tool_does_not_promote_prior_reply_to_final(self):
+        for tail in ([], [AuditEvent(50, 'tool', 'tool_result', tool_result_error=False,
+                tool_result_text='1 passed', tool_result_exit_codes=[0])]):
+            with self.subTest(tail=tail):
+                self.assertEqual(self.audit(tail).outcome_signal, 'incomplete')
+
+    def test_new_user_turn_or_reasoning_invalidates_previous_final_reply(self):
+        reply = AuditEvent(40, 'assistant', 'message', text='The tests have finished.')
+        for activity in (AuditEvent(30, 'user', 'message', text='Now check the next module.'),
+                         AuditEvent(30, 'assistant', 'reasoning', text='I need to check another case.')):
+            with self.subTest(kind=activity.kind):
+                payload = self.audit([self.failure(), reply, activity])
+                self.assertEqual(payload.outcome_signal, 'incomplete')
+                self.assertEqual(payload.errors['count'], 1)
+                if activity.role == 'user':
+                    self.assertFalse(payload.has_assistant_after_last_user)
+                    self.assertEqual(payload.last_assistant_before_last_user, reply.text)
+
+    def test_blank_reply_after_failure_cannot_prove_completion(self):
+        self.assertEqual(self.audit([self.failure(),
+            AuditEvent(40, 'assistant', 'message', text='  \n ')]).outcome_signal, 'incomplete')
+
+    def test_final_reply_restores_completion_without_erasing_historical_errors(self):
+        payload = self.audit([self.failure(),
+            AuditEvent(40, 'assistant', 'tool_use', tool_name='bash', tool_args={'command': 'pytest'}),
+            AuditEvent(30, 'tool', 'tool_result', tool_result_error=False,
+                tool_result_text='1 passed', tool_result_exit_codes=[0]),
+            AuditEvent(20, 'assistant', 'message', text='Fixed the failure; the rerun passed.'),
+            AuditEvent(10, 'other', 'other', text='usage metadata'),
+            AuditEvent(0, 'assistant', 'reasoning', text=''),
+        ])
+        self.assertEqual(payload.outcome_signal, 'completed')
+        self.assertEqual(payload.errors['count'], 1)
+        self.assertEqual([command['status'] for command in payload.commands], ['fail', 'pass'])
 
 
 class ToleranceTests(unittest.TestCase):
@@ -311,21 +380,29 @@ class DbIntegrationTests(unittest.TestCase):
         self.assertIn("audit_version", cols)
 
     def test_audit_version_constant_matches(self):
-        self.assertEqual(AUDIT_VERSION, 3)
+        self.assertEqual(AUDIT_VERSION, 4)
 
     def test_old_audit_version_recomputes_unchanged_source(self):
         import app
+        path = self.sessions_dir / 'integration.jsonl'
+        lines = path.read_text().splitlines()
+        lines.insert(2, _codex_line('2026-01-01T10:00:30Z', 'message', role='assistant',
+            content=[{'type': 'output_text', 'text': 'I will edit the CLI.'}]))
+        path.write_text('\n'.join(lines) + '\n')
+        source_bytes = path.read_bytes()
         idx = app.Indexer(self.sessions_dir, self.data_dir, "codex")
         self.addCleanup(idx.conn.close)
         idx.scan_sessions()
         signature = idx.conn.execute("SELECT file_signature FROM sessions").fetchone()[0]
-        idx.conn.execute("UPDATE sessions SET audit_version = 2, value_score = -123")
+        idx.conn.execute("UPDATE sessions SET audit_version = 3, value_score = -123, outcome_signal = 'completed'")
         idx.conn.commit()
         idx.scan_sessions()
-        row = idx.conn.execute("SELECT file_signature, audit_version, value_score FROM sessions").fetchone()
+        row = idx.conn.execute("SELECT file_signature, audit_version, value_score, outcome_signal FROM sessions").fetchone()
         self.assertEqual(row["file_signature"], signature)
         self.assertEqual(row["audit_version"], AUDIT_VERSION)
         self.assertGreaterEqual(row["value_score"], 0)
+        self.assertEqual(row['outcome_signal'], 'incomplete')
+        self.assertEqual(path.read_bytes(), source_bytes)
 
     def test_serialize_deserialize_roundtrip(self):
         tmp = tempfile.TemporaryDirectory()

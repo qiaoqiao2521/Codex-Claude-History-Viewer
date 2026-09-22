@@ -6,6 +6,7 @@ import re
 import shutil
 import sqlite3
 import subprocess
+import sys
 import threading
 import time
 from collections import OrderedDict
@@ -42,6 +43,7 @@ from audit.briefing import (
     render_briefing_markdown,
 )
 from audit.schema import LLM_AUDIT_INPUT_FIELDS
+from history_core.providers import parser_for, include_file, opencode_database, copilot_root, native_indexer
 
 # Compatibility exports: existing callers import these names from app.
 from history_core.sources import (
@@ -505,6 +507,9 @@ class Handler(SimpleHTTPRequestHandler):
         sources, errors = [], []
         for (system, source), backend in self._source_backends.items():
             try:
+                from history_core.diagnostics import optional_missing_source
+                if optional_missing_source(backend):
+                    continue
                 backend.ensure_ready()
                 if backend.indexer is None:
                     raise ValueError('source_unavailable')
@@ -938,13 +943,23 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Codex + Claude + OpenClaw history viewer")
+    parser = argparse.ArgumentParser(description="Local Agent CLI history viewer")
     parser.add_argument("--version", action="version", version=Path(__file__).with_name("VERSION").read_text().strip())
     parser.add_argument("--demo", action="store_true", help="Use packaged synthetic data only; disable private source discovery")
     parser.add_argument("--no-wsl", action="store_true", help="Do not discover or start WSL sources")
     parser.add_argument("--codex-dir", default=os.path.expanduser("~/.codex"))
     parser.add_argument("--claude-dir", default=os.path.expanduser("~/.claude"))
     parser.add_argument("--openclaw-dir", default=os.path.expanduser("~/.openclaw"))
+    parser.add_argument("--codebuddy-dir", "--cbc-dir", dest="codebuddy_dir", default=os.environ.get('CODEBUDDY_CONFIG_DIR') or os.path.expanduser("~/.codebuddy"))
+    parser.add_argument("--gemini-dir", default=os.environ.get('GEMINI_CLI_HOME') or os.path.expanduser("~/.gemini"))
+    parser.add_argument("--pi-dir", default=os.environ.get('PI_CODING_AGENT_DIR') or os.path.expanduser("~/.pi/agent"))
+    parser.add_argument("--pi-sessions-dir", default=os.environ.get('PI_CODING_AGENT_SESSION_DIR'))
+    parser.add_argument("--prime-dir", default=os.environ.get('PRIME_AGENT_CODING_AGENT_DIR') or os.path.expanduser("~/.prime/agent"))
+    parser.add_argument("--prime-sessions-dir", default=os.environ.get('PRIME_AGENT_SESSION_DIR'))
+    parser.add_argument("--copilot-dir", default=str(copilot_root()))
+    parser.add_argument("--zcode-state-db", default=os.path.expanduser("~/.zcode/cli/db/db.sqlite"))
+    parser.add_argument("--agy-state-db", default=os.path.expanduser("~/.gemini/antigravity-cli/conversation_summaries.db"))
+    parser.add_argument("--antigravity-state-db", default=os.path.expanduser("~/.gemini/antigravity/conversation_summaries.db"))
     parser.add_argument("--hermes-state-db", default=None)
     parser.add_argument("--opencode-state-db", default=None)
     parser.add_argument("--wsl-distro", default="Ubuntu-22.04")
@@ -961,12 +976,16 @@ def main():
     parser.add_argument("--audit-llm-api-key", default=None, help="API key for AI audit (defaults to OPENAI_API_KEY/DEEPSEEK_API_KEY env)")
     parser.add_argument("--audit-value-threshold", type=int, default=VALUE_SCORE_THRESHOLD, help="Minimum value_score to allow AI audit generation")
     args = parser.parse_args()
+    supplied_options = {arg.split('=', 1)[0] for arg in sys.argv[1:] if arg.startswith('--')}
 
     if args.demo:
         demo_root = Path(__file__).resolve().parent / 'demo'
         args.codex_dir = str(demo_root / 'codex')
         args.claude_dir = str(demo_root / 'claude')
         args.openclaw_dir = str(demo_root / 'openclaw')
+        for source in ('codebuddy', 'gemini', 'pi', 'prime', 'copilot'):
+            setattr(args, source + '_dir', str(demo_root / source))
+        args.pi_sessions_dir = args.prime_sessions_dir = None
         args.no_wsl = True
     codex_dir = Path(args.codex_dir).expanduser()
     claude_dir = Path(args.claude_dir).expanduser()
@@ -999,15 +1018,7 @@ def main():
     def detect_opencode_state_db(explicit_path):
         if args.demo:
             return None
-        candidates = []
-        if explicit_path:
-            return Path(explicit_path).expanduser()
-        if runtime_system != "windows":
-            candidates.append(Path("~/.local/share/opencode/opencode.db").expanduser())
-        for candidate in candidates:
-            if candidate.exists():
-                return candidate
-        return None
+        return opencode_database(explicit_path)
 
     def register_source(
         system,
@@ -1044,6 +1055,13 @@ def main():
             indexer_factory=indexer_factory,
             read_only=read_only,
         )
+        flags = {'--' + source + '-dir', '--' + source + '-state-db', '--' + source + '-sessions-dir'}
+        if source == 'codebuddy': flags.add('--cbc-dir')
+        configured_env = {'codebuddy': ('CODEBUDDY_CONFIG_DIR',), 'gemini': ('GEMINI_CLI_HOME',),
+                          'pi': ('PI_CODING_AGENT_DIR', 'PI_CODING_AGENT_SESSION_DIR'),
+                          'prime': ('PRIME_AGENT_CODING_AGENT_DIR', 'PRIME_AGENT_SESSION_DIR')}.get(source, ())
+        source_backends[(system, source)].optional_discovery = args.demo or (
+            not flags.intersection(supplied_options) and not any(os.environ.get(key) for key in configured_env))
 
     openclaw_filter = lambda p: p.parent.name == "sessions"
     claude_filter = lambda p: not p.name.startswith("agent-")
@@ -1065,6 +1083,24 @@ def main():
         register_source("linux", "codex", codex_dir, codex_dir / "sessions", "index_linux.sqlite", parse_codex_session_file, 5)
         register_source("linux", "claude", claude_dir, claude_dir / "projects", "index_linux_claude.sqlite", parse_claude_session_file, 5, file_filter_fn=claude_filter)
         register_source("linux", "openclaw", openclaw_dir, openclaw_dir / "agents", "index_linux_openclaw.sqlite", parse_openclaw_session_file, 1, file_filter_fn=openclaw_filter)
+
+        for source, subdir in (('codebuddy', 'projects'), ('gemini', 'tmp'), ('pi', 'sessions'), ('prime', 'sessions'), ('copilot', 'session-state')):
+            root = Path(getattr(args, source + '_dir')).expanduser()
+            override = getattr(args, source + '_sessions_dir', None)
+            sessions = Path(override).expanduser() if override else root / subdir
+            register_source('linux', source, root, sessions,
+                            'index_linux_' + source + '.sqlite', parser_for(source), 1,
+                            file_filter_fn=lambda path, src=source: include_file(src, path),
+                            read_only=True)
+            if override:
+                source_backends[('linux', source)].source_flag = '--' + source + '-sessions-dir'
+                source_backends[('linux', source)].source_argument = str(sessions)
+
+        if not args.demo:
+            for source in ('zcode', 'agy', 'antigravity'):
+                native_db = Path(getattr(args, source + '_state_db')).expanduser()
+                register_source('linux', source, native_db.parent, native_db, 'index_' + source + '.sqlite',
+                                None, 1, indexer_factory=lambda src=source, path=native_db: native_indexer(src, path), read_only=True)
 
     hermes_state_db = detect_hermes_state_db(args.hermes_state_db)
     if hermes_state_db:

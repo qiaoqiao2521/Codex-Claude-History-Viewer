@@ -7,13 +7,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from audit import extract_session_audit_bytes
+from .providers import FILE_SOURCES
 
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
 
 
 def validate_native_size(indexer, session_id):
     """Bound the actual joined row text loaded by OpenCode's audit reader."""
-    if getattr(indexer, 'source', '') != 'opencode':
+    if getattr(indexer, 'source', '') not in ('opencode', 'zcode'):
         return
     with indexer.lock:
         row = indexer.conn.execute(
@@ -28,7 +29,7 @@ def selected_snapshot(indexer, session_id):
     """Read only the chosen JSONL, and extract from precisely the hashed bytes."""
     source = getattr(indexer, 'source', '')
     root = getattr(indexer, 'sessions_dir', None)
-    if root is None or source not in ('codex', 'claude', 'openclaw'):
+    if root is None or source not in FILE_SOURCES:
         validate_native_size(indexer, session_id)
         build = getattr(indexer, 'build_session_audit', None)
         return (build(session_id) if build else None), {
@@ -65,6 +66,8 @@ def selected_snapshot(indexer, session_id):
         raw = stream.read(MAX_SOURCE_BYTES + 1)
         after = os.fstat(stream.fileno())
     truncated = len(raw) > MAX_SOURCE_BYTES
+    if truncated and source in ('gemini', 'pi', 'prime', 'copilot'):
+        raise ValueError('handoff_source_limit_exceeded: materialized history requires a complete document')
     raw = raw[:MAX_SOURCE_BYTES]
     # Exclude the incomplete trailing JSONL record, preserving line references.
     if truncated:
@@ -80,7 +83,8 @@ def selected_snapshot(indexer, session_id):
         'status': 'captured' if stable else 'unknown',
         'reason': 'source_changed_during_read' if not stable else ('bounded_prefix' if truncated else None),
         'source': source, 'session_id': str(session_id),
-        'locator': {'path': str(path), 'format': 'jsonl', 'line_numbering': 'one_based'},
+        'locator': ({'path': str(path), 'format': 'json', 'addressing': 'json_pointer'} if source == 'gemini' and path.suffix == '.json'
+                    else {'path': str(path), 'format': 'jsonl', 'line_numbering': 'one_based'}),
         'content_revision': 'sha256:' + digest if stable and not truncated else 'unknown',
         'context_revision': 'sha256:' + digest, 'bytes_captured': len(raw),
         'byte_limit': MAX_SOURCE_BYTES, 'truncated': truncated,

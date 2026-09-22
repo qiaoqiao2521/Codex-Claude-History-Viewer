@@ -65,6 +65,7 @@ function post(path, data) {
 function warnings(container, data) {
   container.replaceChildren();
   for (const error of listOf(data.errors)) container.append(text('p', `部分来源未能读取：${error.source || '未知来源'}（${error.error || error.error_code || '读取失败'}）。以下结果并非全部历史。`, 'work-warning'));
+  for (const warning of listOf(data.content_warnings)) container.append(text('p', `${sourceLabel(warning.source)} 有 ${warning.incomplete_sessions} 个会话正文未完整解码；搜索仅覆盖可读取内容。`, 'work-warning'));
   if (data.partial && !listOf(data.errors).length && !data.truncated) container.append(text('p', '部分结果或摘录未完整读取。请缩小筛选范围，或打开完整会话核对。', 'work-warning'));
   if (data.pagination_status === 'restart_after_source_error') container.append(text('p', '部分来源读取失败，本次只能查看第一页。请选择可用来源重新搜索，或修复来源后重试。', 'work-warning'));
   if (data.truncated) container.append(text('p', '本次结果达到读取上限。请增加关键词、项目或日期筛选以缩小范围。', 'work-warning'));
@@ -73,6 +74,9 @@ function meta(item) {
   const node = text('div', '', 'result-meta');
   node.append(text('span', item.source || '来源未知'), text('span', dateLabel(item.updated_at || item.last_activity)));
   node.append(text('span', item.project || '项目未绑定', 'result-project'));
+  if (item.content_status && item.content_status !== 'decoded_text') {
+    node.append(text('span', item.content_status === 'partial_unsupported_steps' ? '部分步骤未解码，正文不完整' : '仅元数据，正文不可用', 'work-warning'));
+  }
   return node;
 }
 function section(label, values, empty) {
@@ -118,9 +122,10 @@ function rawRecord(item, ref, label = '核对原始记录') {
       else params.set('line_no', String(line));
       const data = await request(`/api/reuse/raw?${params.toString()}`);
       if (current !== sequence) return;
-      if (typeof data.text !== 'string' || !Number.isInteger(data.line_no)) throw new Error('invalid_raw_record');
-      panel.replaceChildren(text('p', `原始行 ${data.line_no}；历史记录，不代表当前代码状态。`, 'muted'));
-      const raw = text('pre', data.text); raw.setAttribute('tabindex', '0'); raw.setAttribute('aria-label', `原始行 ${data.line_no}`); panel.append(raw);
+      if (typeof data.text !== 'string' || (!Number.isInteger(data.line_no) && !/^\/messages\/\d+$/.test(data.json_pointer || ''))) throw new Error('invalid_raw_record');
+      const location = Number.isInteger(data.line_no) ? `原始行 ${data.line_no}` : `原始记录 ${data.json_pointer}`;
+      panel.replaceChildren(text('p', `${location}；历史记录，不代表当前代码状态。`, 'muted'));
+      const raw = text('pre', data.text); raw.setAttribute('tabindex', '0'); raw.setAttribute('aria-label', location); panel.append(raw);
       if (data.truncated) panel.append(text('p', '原始记录过长，当前仅显示有界摘录。', 'work-warning'));
     } catch (error) {
       if (current !== sequence) return;
@@ -496,6 +501,10 @@ async function copySelection() {
     if (state.preview === preview) $('selectionStatus').textContent = '浏览器未允许复制。可从预览选择文本，或下载 Markdown。';
   }
 }
+function sourceLabel(source) {
+  return {codebuddy: 'CodeBuddy (cbc)', gemini: 'Gemini CLI', opencode: 'OpenCode',
+    codex: 'Codex', claude: 'Claude Code', pi: 'pi', copilot: 'GitHub Copilot', zcode: 'ZCode', prime: 'Prime Agent', agy: 'AGY CLI', antigravity: 'Antigravity'}[source] || source || '未知来源';
+}
 function renderHealth(data) {
   if (!Array.isArray(data.sources)) throw new Error('invalid_health');
   const sources = $('sourceStatus'); sources.replaceChildren();
@@ -517,9 +526,9 @@ function renderHealth(data) {
   const all = text('option', '全部来源'); all.value = ''; $('reuseSource').append(all);
   const seen = new Set();
   for (const source of data.sources) {
-    if (!seen.has(source.source)) { const option = text('option', source.source || '未知'); option.value = source.source || ''; $('reuseSource').append(option); seen.add(source.source); }
+    if (!seen.has(source.source)) { const option = text('option', sourceLabel(source.source)); option.value = source.source || ''; $('reuseSource').append(option); seen.add(source.source); }
     const row = text('div', '', 'source-row');
-    row.append(text('h3', `${source.source || '未知来源'} / ${source.error_code === 'not_configured' ? '未加载' : labels[source.status] || source.status || '状态未知'}`));
+    row.append(text('h3', `${sourceLabel(source.source)} / ${source.error_code === 'not_configured' ? '未加载' : source.status === 'partial' ? '部分可读取' : labels[source.status] || source.status || '状态未知'}`));
     row.append(text('p', `记录数：${Number.isFinite(source.count) ? source.count : '未知'}；上次刷新：${dateLabel(source.last_refreshed_at)}`, 'muted'));
     if (source.path) row.append(text('p', source.path, 'source-path'));
     if (source.error_code) row.append(text('p', `读取状态：${source.error_code}`, 'work-warning'));

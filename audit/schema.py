@@ -115,6 +115,7 @@ class AuditEvent:
     tool_result_items: List[str] = field(default_factory=list)
     line_no: Optional[int] = None
     message_index: Optional[int] = None
+    raw_ref: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
