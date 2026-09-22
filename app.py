@@ -502,10 +502,12 @@ class Handler(SimpleHTTPRequestHandler):
 
         return self.send_json({"error": "not found"}, status=404)
 
-    def _reuse_sources(self):
+    def _reuse_sources(self, requested_source=None):
         from history_core.reuse import error_code
         sources, errors = [], []
         for (system, source), backend in self._source_backends.items():
+            if requested_source and source != requested_source:
+                continue
             try:
                 from history_core.diagnostics import optional_missing_source
                 if optional_missing_source(backend):
@@ -527,7 +529,8 @@ class Handler(SimpleHTTPRequestHandler):
         if endpoint == 'health':
             return self.send_json(health(self._source_backends, demo=self._demo,
                 system=self._runtime_system, version=Path(__file__).with_name('VERSION').read_text().strip()))
-        sources, errors = self._reuse_sources()
+        selected_source = reuse.canonical_source(value('source') or None) if endpoint == 'sessions' else None
+        sources, errors = self._reuse_sources(requested_source=selected_source)
         try:
             page = {'cursor':value('cursor'), 'limit':value('limit',20), 'errors':errors}
             if endpoint == 'search':
@@ -539,6 +542,9 @@ class Handler(SimpleHTTPRequestHandler):
                     project=value('project'), start_ms=start, end_ms=end, **page)
             elif endpoint == 'projects':
                 result = reuse.projects(sources, **page)
+            elif endpoint == 'sessions':
+                page['limit'] = value('limit', 50)
+                result = reuse.sessions(sources, project=value('project'), source=selected_source, **page)
             elif endpoint == 'timeline':
                 result = reuse.timeline(sources, project=value('project'), file_path=value('file') or None, **page)
             elif endpoint == 'raw':

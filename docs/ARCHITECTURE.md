@@ -181,7 +181,7 @@ identity through /api/version.
 
 ## Cross-source evidence workspace (1.3 candidate)
 
-`/` serves `static/workspace.*`; `/history` preserves the source-specific browser.
+`/` serves `static/workspace.*` and defaults to the cross-source project directory; `/?view=search` is the global retrieval view. `/history?project=<exact cwd>` opens a cross-source conversation reader and automatically selects the latest session. Existing source/message deep links remain valid.
 `history_core/reuse.py` provides bounded search, exact-cwd projects and timelines over existing indexes. `/api/reuse/{search,projects,timeline}` returns a cursor tied to all participating source revisions. Query failures stop continuation; native SQLite stores retain explicit capability limits. Hermes transport labels are not project directories.
 
 Search snippets carry cached message offsets plus a source revision, checked before and after deep-link message reads. Audit event offsets are different: `/api/reuse/raw` reads an exact JSONL line from the same bounded source snapshot and validates content/context revision. `provenance.selected_snapshot` is shared with Web/Reader audit and selected exports; no second transcript parser or source writes are introduced.
@@ -193,3 +193,9 @@ Gemini legacy JSON uses `/messages/<index>` pointers instead of invented line nu
 `evidence.py` assembles at most 5 selected summaries or indexed messages / 8000 body characters, rejects stale selections, masks common secret patterns and returns previewable Markdown/JSON. Bounded-prefix summaries and complete-message exports have distinct bindings. Masking is not full anonymization. `diagnostics.py` returns richer local-only source status and a separate allowlisted export, never paths or transcripts in that export. Indexing status avoids waiting on the index lock.
 
 Validation and source capability matrix: [reuse findings](../plans/history-reuse-product/findings.md). Fixed synthetic quality/performance tests do not replace U1 or native database performance measurements.
+
+## Project reader and settings
+
+`GET /api/reuse/sessions` is a lightweight, revision-bound project conversation directory. It reuses candidate/index contracts without extracting per-session audits; optional source filtering happens before unrelated backend initialization. Full cwd, system/source/store and native session ID retain their distinct roles. Project pagination remains capped at 20 per page; reader conversation pages may request up to 100.
+
+`static/settings.js` synchronously creates one native dialog shared by both pages and owns its preference controls. It reuses existing theme/role storage keys, adds local reader preferences for text size, tool collapse and initial audit expansion, and notifies the reader through `hv-preferences-change`. Legacy listeners skip settings-owned controls. Source cards show configured paths and refresh existing derived indexes; changing source roots remains a launch-argument operation. The reader updates URL/history and selection identity across project, provider and insight links; stale responses cannot replace a newer navigation.

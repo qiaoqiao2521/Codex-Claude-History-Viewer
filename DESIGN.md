@@ -44,7 +44,7 @@ working.
 
 - System font stack only (`-apple-system, "Segoe UI", Roboto, …`, including
   `PingFang SC` / `Microsoft YaHei` for CJK). No webfonts.
-- Base 13–14px; panel/section labels 10–12px uppercase or `.label` / `.muted`
+- Base 13–14px; reader text adjustable from 13–18px in settings; panel/section labels 10–12px, sentence case or `.label` / `.muted`
   classes; tabular numerals (`font-variant-numeric: tabular-nums`) for token
   counts and scores.
 
@@ -99,3 +99,9 @@ hover states never remove focus visibility.
   (`--sidebar-width`) or the 900px single-column media query.
 - **Don't** place primary content below the fold of an insight panel; panels
   scroll, toolbars stay at the top.
+
+## Product navigation (1.3 candidate)
+
+The primary flow is project → conversation → transcript. `/` defaults to project directory rows; global search is an explicit alternative, retaining query/message deep links. `/history` shows a compact project selector, one source dropdown and a conversation list. Do not reintroduce global keyword/date forms, a wall of provider tabs, theme grids or role filters in the reader sidebar.
+
+Reading preferences and source status belong in the shared native settings dialog. Conversation find, resume details and audit/handoff tools expand on demand. Keep the transcript visible by default; old saved panel heights must not restore the previous control-heavy layout. At 700px and below, opening a conversation collapses the directory behind a labelled button, preserving a usable transcript viewport. Settings retain keyboard focus, Escape dismissal, local persistence and live theme consistency.

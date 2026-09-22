@@ -12,6 +12,25 @@ const sourceTabsEl = document.getElementById("sourceTabs");
 const listFooterEl = document.getElementById("listFooter");
 const listLoadMoreBtn = document.getElementById("listLoadMore");
 const searchForm = document.getElementById("searchForm");
+const readerProjectEl = document.getElementById("readerProject");
+const readerProjectsMoreBtn = document.getElementById("readerProjectsMore");
+const readerSourceEl = document.getElementById("readerSource");
+const readerToggleListBtn = document.getElementById("readerToggleList");
+const readerListStatusEl = document.getElementById("readerListStatus");
+const conversationFindEl = document.getElementById("conversationFind");
+const toggleConversationFindBtn = document.getElementById("toggleConversationFind");
+const sessionDetailsEl = document.getElementById("sessionDetails");
+const sessionReviewEl = document.getElementById("sessionReview");
+// Keep the old single-source helpers usable by existing integrations and tests.
+const readerNavigationActive = readerProjectEl?.tagName === "SELECT";
+let readerProjects = [];
+let readerProjectsCursor = "";
+let readerProjectFetchSeq = 0;
+let readerSessionsCursor = "";
+let readerSessionsFetchSeq = 0;
+let readerNavigationSeq = 0;
+let readerSourceFilter = "";
+let readerActiveKey = "";
 const keywordInput = document.getElementById("q");
 const startInput = document.getElementById("start");
 const endInput = document.getElementById("end");
@@ -128,6 +147,7 @@ const MESSAGE_PREVIEW_CHARS = 4_000;
 const MESSAGE_LAZY_RENDER_ROOT_MARGIN = "800px 0px";
 const SESSION_LIST_PAGE_LIMIT = 50;
 const PROJECT_LIST_PAGE_LIMIT = 40;
+const READER_PROJECT_PAGE_LIMIT = 20;
 const MARKDOWN_RENDER_VERSION = "2026-05-27-1";
 const MARKDOWN_CACHE_INDEX_KEY = "historyViewer.markdownCache.v1.index";
 const MARKDOWN_CACHE_ENTRY_PREFIX = "historyViewer.markdownCache.v1.entry.";
@@ -1465,6 +1485,7 @@ function humanizeToolUseMessage(msg) {
 function sessionSortKeyMs(session) {
   const start = typeof session?.start_ts_ms === "number" ? session.start_ts_ms : 0;
   const end = typeof session?.end_ts_ms === "number" ? session.end_ts_ms : 0;
+  if (readerNavigationActive) return session.updated_at || end || start || 0;
   if (currentSessionSort === "last") return end || start || 0;
   return start || end || 0;
 }
@@ -1577,13 +1598,18 @@ function renderSessions(sessions) {
     item.setAttribute("role", "button");
     item.setAttribute("tabindex", "0");
     if (session.pinned) item.classList.add("pinned");
-    if (currentSession?.id && currentSession.id === session.id) item.classList.add("active");
+    if (readerNavigationActive ? readerSessionKey(session) === readerActiveKey : currentSession?.id === session.id) item.classList.add("active");
+    if (readerNavigationActive) {
+      item.dataset.system = session.system;
+      item.dataset.source = session.source;
+      item.dataset.sourceRevision = session.source_revision || "";
+    }
     item.dataset.sessionId = session.id;
     const pinIcon = session.pinned ? '<span class="pin-icon">\u{1F4CC}</span>' : '';
     item.innerHTML = `
       <div class="session-title">${pinIcon}${escapeHtml(session.title || "Session")}</div>
-      <div class="session-meta">${escapeHtml(formatSessionMeta(session))}</div>
-      ${renderSessionBadges(session)}
+      <div class="session-meta">${escapeHtml(readerNavigationActive ? readerSessionMeta(session) : formatSessionMeta(session))}</div>
+      ${readerNavigationActive ? "" : renderSessionBadges(session)}
     `;
     sessionListEl.appendChild(item);
   };
@@ -1597,7 +1623,7 @@ function renderSessions(sessions) {
   }
 
   let lastDate = "";
-  const useDateDividers = currentSessionSort !== "value";
+  const useDateDividers = readerNavigationActive || currentSessionSort !== "value";
   unpinned.forEach((session) => {
     if (useDateDividers) {
       const date = formatDate(sessionSortKeyMs(session));
@@ -1900,7 +1926,7 @@ function expandAllToolMessages() {
 }
 
 function collapseAllToolMessages() {
-  toolsCollapsedByDefault = true;
+  toolsCollapsedByDefault = readerPreferences().toolsCollapsed;
   expandedToolIndexes = new Set();
   collapsedToolIndexes = new Set();
 }
@@ -2318,6 +2344,14 @@ function resetSessionPane() {
   if (toolActionsEl) toolActionsEl.style.display = "none";
   if (toolTimelineEl) { toolTimelineEl.hidden = true; toolTimelineEl.innerHTML = ""; }
   sessionSearchInput.value = "";
+  if (readerNavigationActive) {
+    document.body.classList.remove("reader-has-session");
+    document.body.classList.remove("reader-show-list");
+    readerToggleListBtn?.setAttribute("aria-expanded", "false");
+    setConversationFind(false);
+    if (sessionDetailsEl) sessionDetailsEl.open = false;
+    if (sessionReviewEl) sessionReviewEl.open = readerPreferences().auditExpanded;
+  }
   sessionSearchCount.textContent = "";
   currentMarks = [];
   activeMarkIndex = -1;
@@ -2387,7 +2421,7 @@ function renderSessionHeader(session) {
   const titleEl = sessionHeaderEl.querySelector(".session-title");
   const metaEl = sessionHeaderEl.querySelector(".session-meta");
   titleEl.textContent = session.title || "Session";
-  const parts = [formatTime(session.start_ts_ms)];
+  const parts = [getSourceLabel(), formatTime(session.start_ts_ms)];
   if (session.cwd) {
     parts.push(session.cwd);
   }
@@ -3291,6 +3325,15 @@ function loadFilePathFilterFromUrl() {
 }
 
 function setResultsHeader() {
+  if (readerNavigationActive) {
+    resultsLabelEl.textContent = "会话";
+    projectCrumbEl.textContent = currentProject === null ? "" : (currentProject || "未绑定项目");
+    if (sessionSortWrapEl) sessionSortWrapEl.style.display = "none";
+    backToProjectsBtn.style.display = "none";
+    if (deleteProjectSessionsBtn) deleteProjectSessionsBtn.style.display = "none";
+    if (cleanupWeakSessionsBtn) cleanupWeakSessionsBtn.style.display = "none";
+    return;
+  }
   const showingSessions = !(browseMode === "projects" && !currentProject);
   const showingProjectActions = browseMode === "projects" && !!currentProject;
   const allowMutations = !sourceIsReadOnly();
@@ -3543,15 +3586,16 @@ async function fetchSession(sessionId, sourceRevision = "") {
   currentMessagesLoadingEarlier = false;
   expandedMessageIndexes = new Set();
   const expandToolsParam = new URLSearchParams(window.location.search).get("expand_tools");
-  toolsCollapsedByDefault = expandToolsParam === "1" ? false : true;
+  toolsCollapsedByDefault = expandToolsParam === "1" ? false : readerPreferences().toolsCollapsed;
   expandedToolIndexes = new Set();
   collapsedToolIndexes = new Set();
   fullToolOutputIndexes = new Set();
   renderStatusMessage("Loading…");
   try {
     const res = await fetch(`${apiBase()}/session/${encodeURIComponent(sessionId)}${sourceRevision ? `?source_revision=${encodeURIComponent(sourceRevision)}` : ""}`);
+    if (seq !== sessionFetchSeq) return;
     if (!res.ok) {
-      renderStatusMessage(res.status === 409 ? "索引已变化，请返回重新搜索后打开消息。" : `Failed to load session (${res.status})`, { kind: "error" });
+      renderStatusMessage(res.status === 409 ? "索引已变化，请重新选择当前项目以刷新会话。检索消息请返回检索页重新定位。" : `Failed to load session (${res.status})`, { kind: "error" });
       return;
     }
     const data = await res.json();
@@ -3663,6 +3707,7 @@ async function fetchProjects({ append = false } = {}) {
 }
 
 async function reloadList() {
+  if (readerNavigationActive) return fetchReaderSessions({ autoOpen: !currentSession });
   resetListPagination();
   setResultsHeader();
   if (browseMode === "projects" && !currentProject) {
@@ -3672,6 +3717,10 @@ async function reloadList() {
 }
 
 async function loadMoreList() {
+  if (readerNavigationActive) {
+    if (currentListHasMore && !currentListLoadingMore) return fetchReaderSessions({ append: true });
+    return;
+  }
   if (!currentListHasMore || currentListLoadingMore) return;
   if (browseMode === "projects" && !currentProject) {
     return fetchProjects({ append: true });
@@ -3774,6 +3823,13 @@ sessionListEl.addEventListener("click", (event) => {
   const target = event.target instanceof Element ? event.target : event.target?.parentElement;
   const item = target ? target.closest(".session-item") : null;
   if (!item) return;
+  if (readerNavigationActive) {
+    const session = currentListItems.find(row => readerSessionKey(row) === readerSessionKey({
+      system: item.dataset.system, source: item.dataset.source, id: item.dataset.sessionId,
+    }));
+    if (session) openReaderSession(session);
+    return;
+  }
   const prev = sessionListEl.querySelector(".session-item.active");
   if (prev) prev.classList.remove("active");
   item.classList.add("active");
@@ -3956,7 +4012,7 @@ if (usageContentEl) {
     const row = target ? target.closest("[data-usage-session]") : null;
     if (!row) return;
     const sessionId = row.dataset.usageSession;
-    if (sessionId) fetchSession(sessionId);
+    if (sessionId) return openInsightSession(sessionId);
   });
 }
 
@@ -4000,7 +4056,7 @@ if (briefingContentEl) {
     const row = target ? target.closest("[data-usage-session]") : null;
     if (!row) return;
     const sessionId = row.dataset.usageSession;
-    if (sessionId) fetchSession(sessionId);
+    if (sessionId) return openInsightSession(sessionId);
   });
 }
 
@@ -4223,6 +4279,7 @@ archiveSessionBtn.addEventListener("click", async () => {
 });
 
 codeThemeButtons.forEach((btn) => {
+  if (window.HVSettings && btn.closest?.("#readerSettingsDialog")) return;
   btn.addEventListener("click", () => {
     const theme = btn.dataset.codeTheme;
     if (!theme || theme === currentCodeTheme) return;
@@ -4243,6 +4300,7 @@ if (sessionSortEl) {
 const roleInputs = document.querySelectorAll(".roles input[type=checkbox]");
 applyRoleFiltersFromStorage(roleInputs);
 roleInputs.forEach((input) => {
+  if (window.HVSettings && input.closest?.("#readerSettingsDialog")) return;
   input.addEventListener("change", () => {
     persistRoleFilters(roleInputs);
     resetMessageRenderCount();
@@ -4417,18 +4475,343 @@ async function applyHistoryTarget(target, navigate = scrollToMessage) {
   if (raw === null && !query) return false;
   const index = /^\d+$/.test(raw || "") ? Number(raw) : -1;
   const valid = Number.isSafeInteger(index) && index >= 0 && index < currentMessageTotal;
-  const owner = currentSession.id;
+  const owner = `${currentSystem}:${currentSource}:${currentSession.id}:${sessionFetchSeq}`;
   // Cross-source term matching can span several messages. Preserve the query
   // as context instead of applying the legacy exact-phrase message filter.
   document.querySelectorAll(".roles input[type=checkbox]").forEach(input => { input.checked = true; });
   const located = valid ? await navigate(index) : false;
-  if (currentSession?.id !== owner) return false;
+  if (`${currentSystem}:${currentSource}:${currentSession?.id}:${sessionFetchSeq}` !== owner) return false;
   if (located && isToolMessage(currentMessages.find(msg => msg.message_index === index))) expandToolMessage(index);
   if (notice) {
     notice.hidden = false;
     notice.textContent = `${query ? `检索：${query} · ` : ""}${located ? `已定位消息 ${index}` : "消息定位已失效，请重新搜索"}`;
   }
   return located;
+}
+
+// Project reader navigation. Selection identity includes the provider and system;
+// provider session IDs are not globally unique.
+function readerSessionKey(row) {
+  return JSON.stringify([row?.system || currentSystem, row?.source || currentSource, row?.id || ""]);
+}
+
+function readerSessionMeta(row) {
+  const status = row.content_status;
+  const coverage = status === "source_missing" ? "正文缺失"
+    : status === "unsupported_legacy_protobuf" ? "仅元数据"
+    : status === "partial_unsupported_steps" ? "部分正文" : "";
+  return [getSourceLabel(row.source), formatTime(row.updated_at || row.end_ts_ms || row.start_ts_ms), coverage].filter(Boolean).join(" · ");
+}
+
+function readerPreferences() {
+  const value = window.HVSettings?.getPreferences?.() || {};
+  return {
+    fontSize: Number(value.fontSize) || 14,
+    toolsCollapsed: typeof value.toolsCollapsed === "boolean" ? value.toolsCollapsed : true,
+    auditExpanded: value.auditExpanded === true,
+  };
+}
+
+function applyReaderPreferences() {
+  applyStoredCodeTheme();
+  applyRoleFiltersFromStorage(document.querySelectorAll(".roles input[type=checkbox]"));
+  const preferences = readerPreferences();
+  toolsCollapsedByDefault = preferences.toolsCollapsed;
+  expandedToolIndexes = new Set();
+  collapsedToolIndexes = new Set();
+  if (readerNavigationActive && sessionReviewEl) sessionReviewEl.open = preferences.auditExpanded;
+  if (messagesEl?.style?.setProperty) messagesEl.style.setProperty("--reader-font-size", `${preferences.fontSize}px`);
+  if (currentSession) renderMessages(currentMessages);
+}
+
+function setConversationFind(open) {
+  if (conversationFindEl) conversationFindEl.hidden = !open;
+  if (toggleConversationFindBtn) toggleConversationFindBtn.setAttribute("aria-expanded", String(open));
+  if (open) sessionSearchInput.focus?.();
+}
+
+function writeReaderLocation({ session = null, replace = false, keepTarget = false } = {}) {
+  if (!readerNavigationActive) return;
+  const params = keepTarget ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  if (currentProject !== null) params.set("project", currentProject);
+  else params.delete("project");
+  if (readerSourceFilter) params.set("filter_source", readerSourceFilter);
+  else params.delete("filter_source");
+  if (session) {
+    params.set("system", session.system || currentSystem);
+    params.set("source", session.source || currentSource);
+    params.set("session", session.id);
+    if (session.source_revision) params.set("source_revision", session.source_revision);
+    else if (!keepTarget) params.delete("source_revision");
+  }
+  const query = params.toString();
+  const url = `${window.location.pathname || "/history"}${query ? `?${query}` : ""}`;
+  const method = replace ? "replaceState" : "pushState";
+  if (typeof window.history?.[method] === "function") window.history[method](null, "", url);
+  else window.history?.replaceState?.(null, "", url);
+}
+
+function renderReaderProjects() {
+  if (!readerProjectEl) return;
+  readerProjectEl.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "__choose_project__";
+  placeholder.textContent = "选择项目，开始阅读";
+  readerProjectEl.appendChild(placeholder);
+  const items = [...readerProjects];
+  if (currentProject !== null && !items.some(row => row.project === currentProject)) {
+    items.unshift({ project: currentProject, label: currentProject || "未绑定项目" });
+  }
+  for (const row of items) {
+    const option = document.createElement("option");
+    option.value = row.project;
+    const count = Number.isFinite(row.session_count) ? ` · ${row.session_count}` : "";
+    option.textContent = `${row.project || "未绑定项目"}${count}`;
+    option.title = row.project || "没有记录工作目录的会话";
+    readerProjectEl.appendChild(option);
+  }
+  readerProjectEl.value = currentProject === null ? "__choose_project__" : currentProject;
+  if (readerProjectsMoreBtn) readerProjectsMoreBtn.hidden = !readerProjectsCursor;
+}
+
+function renderReaderSources() {
+  if (!readerSourceEl) return;
+  readerSourceEl.innerHTML = "";
+  const all = document.createElement("option");
+  all.value = "";
+  all.textContent = "全部来源";
+  readerSourceEl.appendChild(all);
+  const values = new Set();
+  availableSourcesBySystem.forEach(sources => sources.forEach(source => values.add(source)));
+  for (const source of sortByKnownOrder([...values], SOURCE_ORDER)) {
+    const option = document.createElement("option");
+    option.value = source;
+    option.textContent = getSourceLabel(source);
+    readerSourceEl.appendChild(option);
+  }
+  readerSourceEl.value = readerSourceFilter;
+  readerSourceEl.disabled = currentProject === null;
+}
+
+function readerPartialNotice(data) {
+  const notes = [];
+  if (data.errors?.length) notes.push("部分来源暂不可用");
+  if (data.content_warnings?.length) notes.push("部分历史正文未完整解码");
+  if (data.truncated) notes.push("已达到本次读取上限");
+  if (data.partial && !notes.length) notes.push("部分结果未完整加载");
+  return notes.join("；");
+}
+
+function readerNextCursor(data) {
+  if (data.pagination_status && data.pagination_status !== "available") return "";
+  return typeof data.next_cursor === "string" ? data.next_cursor : "";
+}
+
+async function loadReaderProjects({ append = false } = {}) {
+  if (append && !readerProjectsCursor) return;
+  const seq = ++readerProjectFetchSeq;
+  const params = new URLSearchParams({ limit: String(READER_PROJECT_PAGE_LIMIT) });
+  if (append) params.set("cursor", readerProjectsCursor);
+  if (readerProjectsMoreBtn) readerProjectsMoreBtn.disabled = true;
+  try {
+    const res = await fetch(`/api/reuse/projects?${params}`);
+    if (seq !== readerProjectFetchSeq) return;
+    if (!res.ok) throw new Error(res.status === 409 ? "项目索引已变化，请刷新页面" : `HTTP ${res.status}`);
+    const data = await res.json();
+    if (seq !== readerProjectFetchSeq) return;
+    const items = data.items || [];
+    const seen = new Set((append ? readerProjects : []).map(row => row.project));
+    readerProjects = (append ? readerProjects : []).concat(items.filter(row => {
+      if (seen.has(row.project)) return false;
+      seen.add(row.project);
+      return true;
+    }));
+    readerProjectsCursor = readerNextCursor(data);
+    renderReaderProjects();
+    if (readerListStatusEl && currentProject === null) {
+      const notice = readerPartialNotice(data);
+      readerListStatusEl.textContent = notice ? `${notice}；可阅读已加载的项目。`
+        : readerProjects.length ? "选择项目后，显示来自各个 Agent 的会话。" : "暂无项目。请先导入或索引本地会话。";
+    }
+  } catch (err) {
+    if (seq !== readerProjectFetchSeq) return;
+    if (readerListStatusEl) readerListStatusEl.textContent = `项目加载失败：${err?.message || err}`;
+  } finally {
+    if (seq === readerProjectFetchSeq && readerProjectsMoreBtn) readerProjectsMoreBtn.disabled = false;
+  }
+}
+
+function readerEmptyState() {
+  setResultsHeader();
+  resetListPagination();
+  sessionListEl.innerHTML = "";
+  if (readerSourceEl) readerSourceEl.disabled = true;
+  const title = sessionHeaderEl.querySelector(".session-title");
+  if (title) title.textContent = "选择项目，直接阅读对话";
+  renderStatusMessage("从左侧选择项目，即可查看各个 Agent 的会话。需要查找特定内容时，使用「搜索历史」。");
+}
+
+async function fetchReaderSessions({ append = false, autoOpen = false } = {}) {
+  const project = currentProject;
+  if (project === null) {
+    readerEmptyState();
+    return;
+  }
+  if (append && !readerSessionsCursor) return;
+  const seq = ++readerSessionsFetchSeq;
+  const navigation = readerNavigationSeq;
+  const source = readerSourceFilter;
+  const params = new URLSearchParams({ project, limit: String(SESSION_LIST_PAGE_LIMIT) });
+  if (source) params.set("source", source);
+  if (append) params.set("cursor", readerSessionsCursor);
+  if (!append) {
+    resetListPagination();
+    sessionListEl.innerHTML = "";
+  }
+  currentListLoadingMore = append;
+  setResultsHeader();
+  updateListFooter();
+  if (readerListStatusEl) readerListStatusEl.textContent = "正在加载会话…";
+  try {
+    const res = await fetch(`/api/reuse/sessions?${params}`);
+    if (seq !== readerSessionsFetchSeq || navigation !== readerNavigationSeq) return;
+    if (!res.ok) throw new Error(res.status === 409 ? "索引已变化，请重新选择项目以刷新" : `HTTP ${res.status}`);
+    const data = await res.json();
+    if (seq !== readerSessionsFetchSeq || navigation !== readerNavigationSeq) return;
+    const seen = new Set((append ? currentListItems : []).map(readerSessionKey));
+    const rows = (data.items || []).filter(row => {
+      const key = readerSessionKey(row);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    currentListItems = (append ? currentListItems : []).concat(rows);
+    readerSessionsCursor = readerNextCursor(data);
+    currentListHasMore = !!readerSessionsCursor;
+    currentListLoadingMore = false;
+    renderSessions(currentListItems);
+    updateListFooter();
+    if (readerListStatusEl) {
+      const notice = readerPartialNotice(data);
+      readerListStatusEl.textContent = `${currentListItems.length}${currentListHasMore ? "+" : ""} 个会话${notice ? ` · ${notice}` : ""}`;
+    }
+    if (!currentListItems.length && !currentSession) renderStatusMessage("这个项目在当前来源中没有会话，试试「全部来源」。");
+    if (autoOpen && currentListItems.length) await openReaderSession(currentListItems[0], { replace: true });
+  } catch (err) {
+    if (seq !== readerSessionsFetchSeq || navigation !== readerNavigationSeq) return;
+    currentListLoadingMore = false;
+    updateListFooter();
+    if (readerListStatusEl) {
+      readerListStatusEl.textContent = `会话加载失败：${err?.message || err} `;
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "btn small";
+      retry.textContent = "刷新会话";
+      retry.addEventListener("click", () => fetchReaderSessions({ autoOpen: !currentSession }));
+      readerListStatusEl.appendChild(retry);
+    }
+    if (!currentSession) renderStatusMessage(`会话加载失败：${err?.message || err}`, { kind: "error" });
+  }
+}
+
+async function chooseReaderProject(project, { source = "", replace = false } = {}) {
+  ++readerNavigationSeq;
+  ++readerSessionsFetchSeq;
+  ++sessionFetchSeq;
+  currentProject = project;
+  readerSourceFilter = source;
+  readerSessionsCursor = "";
+  readerActiveKey = "";
+  resetSessionPane();
+  renderReaderProjects();
+  renderReaderSources();
+  writeReaderLocation({ replace });
+  await fetchReaderSessions({ autoOpen: true });
+}
+
+async function openReaderSession(row, { replace = false, keepTarget = false } = {}) {
+  ++readerNavigationSeq;
+  ++sessionFetchSeq;
+  const navigation = readerNavigationSeq;
+  currentListLoadingMore = false;
+  updateListFooter();
+  resetSessionPane();
+  currentSystem = row.system || runtimeSystem;
+  currentSource = row.source || currentSource;
+  readerActiveKey = readerSessionKey(row);
+  renderSessions(currentListItems);
+  writeReaderLocation({ session: row, replace, keepTarget });
+  updateResumeCommandLabels();
+  await fetchSession(row.id, row.source_revision || "");
+  if (navigation !== readerNavigationSeq) return false;
+  const loaded = currentSession?.id === row.id;
+  if (loaded) {
+    document.body.classList.add("reader-has-session");
+    document.body.classList.remove("reader-show-list");
+    readerToggleListBtn?.setAttribute("aria-expanded", "false");
+  }
+  return loaded;
+}
+
+function openInsightSession(sessionId) {
+  if (!readerNavigationActive) return fetchSession(sessionId);
+  const target = new URLSearchParams({ system: currentSystem, source: currentSource, session: sessionId });
+  return restoreReaderLocation(target, { push: true });
+}
+
+async function restoreReaderLocation(target = new URLSearchParams(window.location.search), { push = false } = {}) {
+  if (push) {
+    const method = typeof window.history?.pushState === "function" ? "pushState" : "replaceState";
+    window.history?.[method]?.(null, "", `${window.location.pathname || "/history"}?${target}`);
+  }
+  ++readerNavigationSeq;
+  ++readerSessionsFetchSeq;
+  ++sessionFetchSeq;
+  const navigation = readerNavigationSeq;
+  resetSessionPane();
+  readerActiveKey = "";
+  currentProject = target.has("project") ? target.get("project") : null;
+  readerSourceFilter = target.get("filter_source") || "";
+  renderReaderProjects();
+  renderReaderSources();
+  if (target.get("session") && target.get("system") && target.get("source")) {
+    const row = { system: target.get("system"), source: target.get("source"), id: target.get("session"), source_revision: target.get("source_revision") || "" };
+    const loaded = await openReaderSession(row, { replace: true, keepTarget: true });
+    // openReaderSession owns the next navigation revision. If selection changed
+    // while fetching, nothing from this deep link may update the current view.
+    if (!loaded || readerNavigationSeq !== navigation + 1) return;
+    if (currentProject === null) currentProject = currentSession?.cwd || "";
+    renderReaderProjects();
+    renderReaderSources();
+    writeReaderLocation({ session: row, replace: true, keepTarget: true });
+    await applyHistoryTarget(target);
+    if (readerNavigationSeq !== navigation + 1) return;
+    await fetchReaderSessions();
+  } else {
+    await fetchReaderSessions({ autoOpen: true });
+  }
+}
+
+if (readerNavigationActive) {
+  readerProjectEl.addEventListener("change", () => {
+    chooseReaderProject(readerProjectEl.value === "__choose_project__" ? null : readerProjectEl.value);
+  });
+  readerProjectsMoreBtn?.addEventListener("click", () => loadReaderProjects({ append: true }));
+  readerSourceEl?.addEventListener("change", () => chooseReaderProject(currentProject, { source: readerSourceEl.value }));
+  readerToggleListBtn?.addEventListener("click", () => {
+    const open = document.body.classList.toggle("reader-show-list");
+    readerToggleListBtn.setAttribute("aria-expanded", String(open));
+  });
+  window.addEventListener("popstate", () => restoreReaderLocation());
+  window.addEventListener("hv-preferences-change", applyReaderPreferences);
+  toggleConversationFindBtn?.addEventListener("click", () => setConversationFind(conversationFindEl?.hidden !== false));
+  conversationFindEl?.addEventListener("keydown", event => {
+    if (event.key !== "Escape") return;
+    setConversationFind(false);
+    sessionSearchInput.value = "";
+    refreshSessionSearch();
+    toggleConversationFindBtn?.focus?.();
+  });
 }
 
 async function bootstrapApp() {
@@ -4442,6 +4825,13 @@ async function bootstrapApp() {
     renderSourceTabs();
   }
   updateResumeCommandLabels();
+  if (readerNavigationActive) {
+    applyReaderPreferences();
+    renderReaderSources();
+    await loadReaderProjects();
+    await restoreReaderLocation(target);
+    return;
+  }
   loadFilePathFilterFromUrl();
   await reloadList();
   if (target.get("session")) {
@@ -4455,6 +4845,15 @@ bootstrapApp();
 if (globalThis.__CCHV_TEST__) {
   globalThis.__testApi = {
     applyHistoryTarget,
+    loadReaderProjects,
+    fetchReaderSessions,
+    chooseReaderProject,
+    openReaderSession,
+    restoreReaderLocation,
+    applyReaderPreferences,
+    setConversationFind,
+    readerSessionKey,
+    getReaderState() { return { project: currentProject, source: readerSourceFilter, items: currentListItems, activeKey: readerActiveKey, projects: readerProjects, cursor: readerSessionsCursor }; },
     getMessageHtml,
     buildMessageElement,
     buildResumeCommands,

@@ -2,7 +2,8 @@
 
 Local-first, dependency-free web viewer for **Codex CLI**, **Claude Code**, **CodeBuddy (cbc)**, **Gemini CLI**, **pi / Prime Agent**, **GitHub Copilot**, **ZCode**, **AGY CLI / Antigravity**, **OpenCode**, **OpenClaw**, and **Hermes** session history. Format-specific limits are shown explicitly.
 
-- Browse sessions and projects (work dirs)
+- Start with a project, then read conversations across Agent sources in one place
+- Adjust themes, text size, message visibility and source refresh in Settings
 - Search across sources by keyword, project and date; open matching messages with revision checks
 - Follow cross-source project/file history, inspect recorded patches and retain earlier failures
 - Select up to 5 evidence fragments for a revision-bound, masked Markdown/JSON handoff
@@ -36,7 +37,7 @@ Codex CLI and Claude Code both generate local, machine-readable transcripts (JSO
 - compare sessions across days/projects
 - keep everything **local** (no uploads by default)
 
-Current checkout: **1.3.0-rc.2 candidate** with [local CLI source expansion](plans/local-cli-sources/progress.md). Earlier reuse acceptance and U1 status: [history reuse plan](plans/history-reuse-product/progress.md). Independent Linux user trial is pending; stable v1.2.0 remains available.
+Current checkout: **1.3.0-rc.3 candidate** with [project-first reading and settings](plans/project-reader-ux/progress.md). [Local CLI source expansion](plans/local-cli-sources/progress.md) remains included. Earlier reuse acceptance and U1 status: [history reuse plan](plans/history-reuse-product/progress.md). Independent Linux user trial is pending; stable v1.2.0 remains available.
 
 ## Quick start
 

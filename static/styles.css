@@ -1837,3 +1837,114 @@ mark.active {
   margin-bottom: 8px;
   font-size: 12px;
 }
+
+/* Project reader: navigation stays compact; the transcript owns the viewport. */
+.reader-page [hidden], .settings-dialog [hidden] { display: none !important; }
+.reader-page #app { grid-template-columns: minmax(240px, var(--sidebar-width, 300px)) 8px minmax(0, 1fr); height: 100dvh; }
+.reader-page #sidebar { padding: 16px 14px 10px; gap: 16px; height: 100dvh; }
+.reader-page .sidebar-top { height: auto !important; flex: 0 0 auto; gap: 14px; overflow: visible; }
+.reader-brand, .reader-brand-actions, .reader-session-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.reader-brand .brand-title { font-size: 16px; text-decoration: none; color: var(--text); }
+.reader-brand-actions { flex: 0 0 auto; }
+#readerToggleList { display: none; }
+.reader-nav { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; }
+.reader-nav a { color: var(--muted); text-decoration: none; }
+.reader-nav a:hover { color: var(--accent); }
+.reader-project-control, .reader-source-control { min-width: 0; display: grid; gap: 6px; }
+.reader-project-control label, .reader-source-control label { color: var(--muted); font-size: 12px; }
+.reader-page select, .settings-dialog select { width: 100%; min-width: 0; max-width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 8px; color: var(--text); background: var(--surface-subtle); font: inherit; text-overflow: ellipsis; }
+.reader-page #readerProject { font-weight: 600; }
+.reader-page #readerListStatus { margin: 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.reader-page #readerListStatus:empty { display: none; }
+.reader-page .label { letter-spacing: 0; text-transform: none; }
+.reader-page .results { border-top: 1px solid var(--border); padding-top: 12px; }
+.reader-page .results-header { gap: 8px; }
+.reader-page .session-sort { width: auto; font-size: 12px; padding: 5px 7px; }
+.reader-page .session-list { overflow-x: hidden; }
+.reader-page .session-item { border-radius: 6px; padding: 10px; }
+.reader-page .session-item .session-title { font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.reader-page #main { height: 100dvh; }
+.reader-page .session-header { height: auto !important; flex: 0 0 auto; max-height: 48dvh; padding: 18px 24px 12px; gap: 8px; }
+.reader-session-heading { align-items: flex-start; }
+.reader-session-heading .session-title { flex: 1; min-width: 0; font-size: 19px; line-height: 1.45; overflow-wrap: anywhere; }
+.reader-session-heading .btn { flex: 0 0 auto; white-space: nowrap; }
+.reader-page .session-meta { font-size: 12px; overflow-wrap: anywhere; }
+.reader-details { min-width: 0; font-size: 13px; }
+.reader-details > summary { color: var(--muted); cursor: pointer; padding: 4px 0; width: fit-content; }
+.reader-details[open] > summary { color: var(--text); margin-bottom: 8px; }
+.reader-details .session-info { border: 0; border-radius: 6px; }
+.reader-details .info-label { text-transform: none; letter-spacing: 0; }
+.reader-page .messages { padding: 24px; gap: 16px; }
+.reader-page .msg-body { font-size: var(--reader-font-size, 14px); line-height: 1.75; }
+.reader-page .msg { max-width: 100%; min-width: 0; }
+.reader-page .session-search input { min-width: 0; }
+.reader-page .session-actions { flex-wrap: wrap; }
+.reader-page .transcript-area { flex: 1 1 0; min-height: 100px; }
+.reader-page .audit-panel { max-height: 32dvh; }
+.reader-page .tool-actions { margin-top: 8px; }
+
+/* Shared settings use native modal focus and Escape handling. */
+.settings-dialog { color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 0; width: min(600px, calc(100vw - 32px)); max-width: calc(100vw - 32px); max-height: min(760px, calc(100dvh - 40px)); overflow-y: auto; overscroll-behavior: contain; font-size: 14px; }
+.settings-dialog::backdrop { background: rgba(15, 23, 42, .35); }
+.settings-dialog .settings-heading { position: sticky; top: 0; z-index: 1; background: var(--panel); padding: 20px 24px 14px; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.settings-heading h2 { font-size: 21px; margin: 0 0 6px; }
+.settings-heading p { font-size: 13px; margin: 0; }
+.settings-tabs { display: flex; gap: 8px; padding: 0 24px 16px; border-bottom: 1px solid var(--border); }
+.settings-tabs .active { color: var(--accent); border-color: var(--accent); }
+.settings-dialog > section { padding: 20px 24px 24px; }
+.settings-dialog fieldset { padding: 0; margin: 0 0 22px; border: 0; min-width: 0; }
+.settings-dialog legend { margin-bottom: 10px; font-weight: 600; }
+.settings-dialog .theme-grid .tab { color: var(--text); }
+.settings-dialog .roles { gap: 12px; }
+.settings-dialog label { cursor: pointer; }
+.settings-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+.settings-row select { width: 125px; }
+.settings-check { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.settings-help { line-height: 1.65; font-size: 12px; }
+.settings-footer { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.settings-source-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.settings-source-heading h3 { font-size: 14px; margin: 0; }
+.settings-source-heading .muted { font-size: 12px; }
+.settings-source-row { padding: 16px 0; border-top: 1px solid var(--border); }
+.settings-source-row p { margin: 8px 0; font-size: 12px; }
+.settings-source-row .settings-source-path { overflow-wrap: anywhere; color: var(--text); }
+.settings-source-row summary { cursor: pointer; color: var(--muted); margin: 8px 0; font-size: 12px; }
+.settings-source-row code { display: block; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; background: var(--surface-subtle); font-size: 12px; }
+.settings-source-row button { margin-top: 8px; }
+.settings-dialog input[type="checkbox"] { accent-color: var(--accent); }
+.settings-dialog :focus-visible, .reader-details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 900px) and (min-width: 701px) {
+  .reader-page { overflow: hidden; }
+  .reader-page #app { grid-template-columns: 250px 6px minmax(0, 1fr); }
+  .reader-page #sidebarResizer { display: block; }
+  .reader-page .session-header, .reader-page .messages { padding: 14px; }
+  .reader-session-heading { flex-wrap: wrap; }
+}
+@media (max-width: 700px) {
+  .reader-page { overflow: hidden; }
+  .reader-page #app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .reader-page #sidebar { height: auto; max-height: 48dvh; gap: 10px; padding: 10px 14px; }
+  .reader-page #main { height: auto; min-height: 0; }
+  .reader-page .sidebar-top { gap: 8px; }
+  .reader-page .reader-nav { font-size: 12px; }
+  .reader-page .reader-project-control, .reader-page .reader-source-control { grid-template-columns: 66px minmax(0, 1fr); align-items: center; }
+  .reader-page #readerProjectsMore { grid-column: 2; }
+  .reader-page .results { min-height: 90px; }
+  .reader-page #readerToggleList { display: inline-block; }
+  .reader-page.reader-has-session:not(.reader-show-list) .reader-project-control,
+  .reader-page.reader-has-session:not(.reader-show-list) .reader-source-control,
+  .reader-page.reader-has-session:not(.reader-show-list) #readerListStatus,
+  .reader-page.reader-has-session:not(.reader-show-list) #sidebar > .results { display: none; }
+  .reader-page .session-header { padding: 12px 14px 8px; max-height: 35dvh; }
+  .reader-session-heading { flex-wrap: wrap; gap: 7px; }
+  .reader-session-heading .session-title { flex-basis: 100%; font-size: 16px; }
+  .reader-page .messages { padding: 14px; }
+  .reader-page .info-row { grid-template-columns: 64px minmax(0, 1fr) auto; }
+  .settings-dialog { width: calc(100vw - 20px); max-width: calc(100vw - 20px); max-height: calc(100dvh - 24px); }
+  .settings-dialog .settings-heading { padding: 18px 16px 12px; }
+  .settings-tabs { padding: 0 16px 12px; }
+  .settings-dialog > section { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader-page *, .settings-dialog * { scroll-behavior: auto; transition: none; }
+}

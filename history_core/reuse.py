@@ -144,10 +144,10 @@ def _terms(query):
     return query, terms
 
 
-def _limit(value):
+def _limit(value, maximum=20):
     try: value = int(value)
     except (ValueError, TypeError): raise ValueError('invalid_limit') from None
-    if not 1 <= value <= 20: raise ValueError('invalid_limit')
+    if not 1 <= value <= maximum: raise ValueError('invalid_limit')
     return value
 
 
@@ -345,6 +345,37 @@ def projects(indexers, *, cursor=None, limit=20, errors=None):
     items=sorted(groups.values(),key=lambda x:(-x['last_activity'],x['project']))
     _check_revision(indexers,revision,before_errors)
     return _finish(items,offset,limit,revision,qhash,errors,truncated)
+
+
+def sessions(indexers, *, project, source=None, cursor=None, limit=50, errors=None):
+    """List one project's sessions without extracting messages or audit evidence."""
+    if project is None: raise ValueError('project_required')
+    if len(project) > 4096: raise ValueError('path_too_long')
+    limit = _limit(limit, maximum=100)
+    source = canonical_source(source)
+    if source and source not in SOURCES: raise ValueError('invalid_source')
+    selected = [entry for entry in indexers if not source or entry[1] == source]
+    errors = [error for error in (errors or []) if not source or error.get('source') == source]
+    before_errors = list(errors)
+    ready, revision = _capture(selected, errors)
+    offset, qhash = _page_start(cursor, revision, ['sessions', project, source, limit])
+    items, truncated = [], False
+    for system, src, idx in ready:
+        try:
+            rows, capped = _candidates(idx, project=project)
+            source_revision = index_revision(idx)
+            truncated |= capped
+            for row in rows:
+                item = _item(system, src, idx, row)
+                item['source_revision'] = source_revision
+                items.append(item)
+        except (ValueError, OSError, sqlite3.Error) as exc:
+            errors.append({'system': system, 'source': src, 'error': error_code(exc)})
+    items.sort(key=lambda item: (-(item['updated_at'] or 0), item['source'], item['store_id'], item['id']))
+    result = _finish(items, offset, limit, revision, qhash, errors, truncated)
+    result.update(project=project, source=source, has_more=bool(result['next_cursor']))
+    _check_revision(selected, revision, before_errors)
+    return _content_coverage(result, ready)
 
 
 def timeline(indexers, *, project, file_path=None, cursor=None, limit=20, errors=None):

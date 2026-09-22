@@ -1,7 +1,7 @@
 const $ = id => document.getElementById(id);
 const listOf = value => Array.isArray(value) ? value : [];
 const state = {
-  view: 'search', project: null, query: '', selected: new Map(), selectionVersion: 0,
+  view: 'projects', project: null, query: '', selected: new Map(), selectionVersion: 0,
   preview: null, diagnostic: null, diagnosticShown: false, healthSequence: 0, selectionSequence: 0,
   pages: Object.fromEntries(['search', 'projects', 'timeline'].map(key => [key, {sequence: 0, items: [], cursor: null, params: {}}])),
 };
@@ -29,6 +29,8 @@ function isStale(item, now = Date.now()) {
 function historyLink(item, label, messageIndex, query = '') {
   const link = text('a', label);
   const params = new URLSearchParams({system: item.system || 'linux', source: item.source || '', session: item.id || item.session_id || ''});
+  const project = item.project ?? state.project;
+  if (project != null) params.set('project', String(project));
   if (Number.isInteger(messageIndex) && messageIndex >= 0) {
     params.set('message', String(messageIndex));
     if (item.source_revision) params.set('source_revision', item.source_revision);
@@ -64,6 +66,15 @@ function post(path, data) {
 }
 function warnings(container, data) {
   container.replaceChildren();
+  if (container === $('projectsWarnings')) {
+    if (listOf(data.errors).length || listOf(data.content_warnings).length || data.partial) {
+      const notice = text('p', '部分来源暂未读全，当前项目列表可能不完整。 ', 'work-warning');
+      notice.append(button('查看来源状态', () => window.HVSettings?.open('sources')));
+      container.append(notice);
+    }
+    if (data.truncated) container.append(text('p', '项目列表达到读取上限。可使用“搜索历史”按项目路径缩小范围。', 'work-warning'));
+    return;
+  }
   for (const error of listOf(data.errors)) container.append(text('p', `部分来源未能读取：${error.source || '未知来源'}（${error.error || error.error_code || '读取失败'}）。以下结果并非全部历史。`, 'work-warning'));
   for (const warning of listOf(data.content_warnings)) container.append(text('p', `${sourceLabel(warning.source)} 有 ${warning.incomplete_sessions} 个会话正文未完整解码；搜索仅覆盖可读取内容。`, 'work-warning'));
   if (data.partial && !listOf(data.errors).length && !data.truncated) container.append(text('p', '部分结果或摘录未完整读取。请缩小筛选范围，或打开完整会话核对。', 'work-warning'));
@@ -327,7 +338,7 @@ function searchResult(item, query) {
   open.setAttribute('aria-controls', panelId);
   const actions = text('div', '', 'result-actions');
   actions.append(open);
-  if (item.project) actions.append(button('查看项目历史', () => selectProject(item.project)));
+  if (item.project != null) actions.append(button('查看工作记录', () => selectProject(item.project)));
   node.append(actions, detail);
   return node;
 }
@@ -344,13 +355,25 @@ function renderPage(kind) {
     if (kind === 'search') list.append(searchResult(item, page.params.q || ''));
     else if (kind === 'timeline') list.append(record(item, Date.now(), page.params.file || ''));
     else {
-      const choice = button('', () => selectProject(item.project), 'project-choice');
-      choice.setAttribute('aria-pressed', String(state.project === item.project));
-      choice.append(text('strong', item.label || item.project || '未命名项目'), text('span', item.project, 'muted'), text('span', `${item.session_count || 0} 个会话 / ${dateLabel(item.last_activity)}`, 'muted'));
-      list.append(choice);
+      const row = text('div', '', 'project-row');
+      const choice = text('a', '', 'project-choice');
+      const project = item.project ?? '';
+      choice.href = `/history?${new URLSearchParams({project}).toString()}`;
+      const identity = text('span', '', 'project-identity');
+      identity.append(text('strong', item.label || project || '未绑定项目'), text('span', project || '这些会话未记录项目目录', 'project-path muted'));
+      const activity = text('span', '', 'project-activity muted');
+      const providers = [...new Set(listOf(item.sources).map(source => sourceLabel(source.source)))];
+      activity.append(text('span', `${item.session_count || 0} 个对话${providers.length ? ` · ${providers.join('、')}` : ''}`), text('span', dateLabel(item.last_activity)));
+      choice.append(identity, activity);
+      const records = button('查看工作记录', () => selectProject(project), 'btn small project-records');
+      records.setAttribute('aria-label', `查看 ${item.label || project || '未绑定项目'} 的工作记录`);
+      records.setAttribute('aria-expanded', String(state.project === project && !$('timelineSection').hidden));
+      records.setAttribute('aria-controls', 'timelineSection');
+      row.append(choice, records);
+      list.append(row);
     }
   }
-  $(elements.status).textContent = page.items.length ? `已显示 ${page.items.length} 个${elements.label}。` : kind === 'search' ? '没有匹配结果。试试更短的关键词，或清除来源、项目与日期筛选。' : kind === 'projects' ? '尚未找到项目记录。展开“本地来源与诊断”检查索引，或运行 python3 app.py --demo 体验。' : '当前项目与文件条件下没有会话。清除文件筛选后重试。';
+  $(elements.status).textContent = page.items.length ? kind === 'projects' ? `${page.items.length} 个项目，按最近活动排列。选择项目即可阅读对话。` : `已显示 ${page.items.length} 个${elements.label}。` : kind === 'search' ? '没有匹配结果。试试更短的关键词，或清除来源、项目与日期筛选。' : kind === 'projects' ? '还没有项目记录。请在设置中检查来源；索引完成后刷新列表。' : '当前项目与文件条件下没有会话。清除文件筛选后重试。';
   $(elements.more).hidden = !page.cursor;
   $(elements.more).disabled = false;
 }
@@ -382,7 +405,7 @@ async function loadPage(kind, params, append = false) {
 }
 function persistSearch(params) {
   if (!window.history?.replaceState || !window.location) return;
-  const query = new URLSearchParams();
+  const query = new URLSearchParams({view: 'search'});
   for (const key of ['q', 'source', 'project', 'start', 'end']) if (params[key]) query.set(key, params[key]);
   const value = query.toString();
   window.history.replaceState(null, '', `${window.location.pathname || '/'}${value ? `?${value}` : ''}${window.location.hash || ''}`);
@@ -396,10 +419,10 @@ function setSourceFilter(value) {
 }
 function restoreSearchFromUrl(searchValue = window.location?.search || '') {
   const params = new URLSearchParams(searchValue);
-  if (!params.has('q')) return false;
+  if (!params.has('q') && params.get('view') !== 'search') return false;
   for (const [id, key] of [['reuseQuery', 'q'], ['reuseProject', 'project'], ['reuseStart', 'start'], ['reuseEnd', 'end']]) $(id).value = params.get(key) || '';
   setSourceFilter(params.get('source') || '');
-  return !!$('reuseQuery').value.trim();
+  return true;
 }
 function searchParams() {
   const result = {q: $('reuseQuery').value.trim()};
@@ -407,6 +430,7 @@ function searchParams() {
   return result;
 }
 async function search(append = false) {
+  setView('search', false);
   if (append) return loadPage('search', null, true);
   const params = searchParams();
   persistSearch(params);
@@ -419,7 +443,12 @@ async function search(append = false) {
   }
   return loadPage('search', params);
 }
-function setView(view) {
+function updateLayout() {
+  const hasSelectionPanel = state.view === 'search' || (state.view === 'projects' && !$('timelineSection').hidden) || state.selected.size > 0;
+  $('selectionPanel').hidden = !hasSelectionPanel;
+  $('reuseLayout').className = `reuse-layout${hasSelectionPanel ? '' : ' projects-home'}`;
+}
+function setView(view, persist = true) {
   state.view = view;
   for (const name of ['search', 'projects']) {
     const selected = name === view;
@@ -428,13 +457,25 @@ function setView(view) {
     $(`${name}Tab`).setAttribute('tabindex', selected ? '0' : '-1');
     $(`${name}Tab`).className = `tab${selected ? ' active' : ''}`;
   }
+  updateLayout();
+  if (persist && window.history?.replaceState) {
+    if (view === 'search') persistSearch(state.pages.search.params);
+    else window.history.replaceState(null, '', `${window.location?.pathname || '/'}${window.location?.hash || ''}`);
+  }
   if (view === 'projects' && !state.pages.projects.items.length) return loadPage('projects', {});
+}
+function showProjects() {
+  state.project = null;
+  $('timelineSection').hidden = true;
+  renderPage('projects');
+  return setView('projects');
 }
 function selectProject(project) {
   if (project == null) return;
   state.project = String(project);
   setView('projects');
   $('timelineSection').hidden = false;
+  updateLayout();
   $('timelineTitle').textContent = state.project || '未绑定项目的历史';
   $('timelineFile').value = '';
   renderPage('projects');
@@ -448,6 +489,7 @@ function timeline(append = false) {
   return loadPage('timeline', params);
 }
 function renderSelection() {
+  updateLayout();
   $('selectionCount').textContent = `${state.selected.size} / 5`;
   $('selectionPreview').disabled = !state.selected.size;
   $('selectionClear').disabled = !state.selected.size;
@@ -550,7 +592,8 @@ function renderHealth(data) {
   if (!data.sources.length) sources.append(text('p', '尚未发现已配置的来源。先运行 python3 app.py --demo 体验，或在启动应用时配置真实来源。', 'work-warning'));
   setSourceFilter(chosen);
   $('demoNotice').hidden = !data.demo;
-  $('workspaceStatus').textContent = `${data.demo ? '正在浏览演示记录' : '本地历史'}${data.version ? ` / ${data.version}` : ''}。已检查 ${data.sources.length} 个来源；索引状态见“本地来源与诊断”。`;
+  const active = data.sources.filter(source => Number(source.count) > 0).length;
+  $('workspaceStatus').textContent = `${data.demo ? '演示记录' : '本地历史'}${data.version ? ` ${data.version}` : ''} · ${active} 个来源有记录`;
   state.diagnostic = data.diagnostic && typeof data.diagnostic === 'object' ? data.diagnostic : null;
   state.diagnosticShown = false;
   $('diagnosticPreviewBtn').disabled = !state.diagnostic;
@@ -570,7 +613,7 @@ async function loadHealth() {
     state.diagnostic = null; state.diagnosticShown = false;
     $('diagnosticPreviewBtn').disabled = true; $('diagnosticPreviewBtn').setAttribute('aria-expanded', 'false');
     $('diagnosticPreview').hidden = true; $('diagnosticText').textContent = '';
-    $('workspaceStatus').textContent = `来源检查失败（${error.message}）。展开“本地来源与诊断”重新检查，或确认本地服务仍在运行。`;
+    $('workspaceStatus').textContent = `来源检查失败（${error.message}）。请在设置中重新检查，或确认本地服务仍在运行。`;
   }
 }
 function previewDiagnostic() {
@@ -587,13 +630,15 @@ $('projectsRetry').addEventListener('click', () => loadPage('projects', {}));
 $('timelineMore').addEventListener('click', () => timeline(true));
 $('timelineFilter').addEventListener('submit', event => { event.preventDefault(); timeline(); });
 $('timelineClear').addEventListener('click', () => { $('timelineFile').value = ''; timeline(); });
+$('timelineClose').addEventListener('click', showProjects);
 for (const view of ['search', 'projects']) {
-  $(`${view}Tab`).addEventListener('click', () => setView(view));
+  $(`${view}Tab`).addEventListener('click', () => view === 'projects' ? showProjects() : setView(view));
   $(`${view}Tab`).addEventListener('keydown', event => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const next = event.key === 'Home' ? 'search' : event.key === 'End' ? 'projects' : view === 'search' ? 'projects' : 'search';
-    setView(next); $(`${next}Tab`).focus();
+    const next = event.key === 'Home' ? 'projects' : event.key === 'End' ? 'search' : view === 'search' ? 'projects' : 'search';
+    if (next === 'projects') showProjects(); else setView(next);
+    $(`${next}Tab`).focus();
   });
 }
 $('selectionClear').addEventListener('click', () => { invalidatePreview(); state.selected.clear(); renderSelection(); });
@@ -610,8 +655,12 @@ try {
 } catch { /* Storage is optional in local and private browser contexts. */ }
 async function bootstrapWorkspace() {
   await loadHealth();
-  if (!state.pages.search.sequence && restoreSearchFromUrl()) await search();
+  if (state.pages.search.sequence) return;
+  if (restoreSearchFromUrl()) {
+    setView('search', false);
+    if ($('reuseQuery').value.trim()) await search();
+  } else await setView('projects', false);
 }
-if (typeof window !== 'undefined') window.__workspaceTestApi = {state, record, facts, matchingMessages, restoreSearchFromUrl, bootstrapWorkspace, fileChanges, rawRecord, hasSourceRevision, errorAdvice, historyLink, searchResult, selectionFor, toggleSelection, renderSelection, previewSelection, copySelection, downloadSelection, renderHealth, loadHealth, previewDiagnostic, search, loadPage, setView, selectProject, timeline, isStale};
+if (typeof window !== 'undefined') window.__workspaceTestApi = {state, record, facts, matchingMessages, restoreSearchFromUrl, bootstrapWorkspace, fileChanges, rawRecord, hasSourceRevision, errorAdvice, historyLink, searchResult, selectionFor, toggleSelection, renderSelection, previewSelection, copySelection, downloadSelection, renderHealth, loadHealth, previewDiagnostic, search, loadPage, renderPage, setView, showProjects, selectProject, timeline, isStale};
 renderSelection();
 bootstrapWorkspace();
