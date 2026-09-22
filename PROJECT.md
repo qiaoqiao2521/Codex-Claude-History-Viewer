@@ -42,9 +42,9 @@ Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56e
 
 ## Current Priority
 
-用户本人验收后要求产品化：默认选项目直接看对话，去掉阅读页重复全局搜索和拥挤来源标签，增加统一设置。当前执行 [project-reader-ux](plans/project-reader-ux/task_plan.md)，保留证据与修订校验。
+用户本人验收后要求产品化：默认选项目直接看对话，去掉阅读页重复全局搜索和拥挤来源标签，增加统一设置。[project-reader-ux](plans/project-reader-ux/task_plan.md) 已完成；候选 1.3.0-rc.3（源码 c47bbc8）已离线验包、安装并在本机8787运行供用户继续验收，保留证据与修订校验。候选交付事实以该计划 progress 为准，U1 不变。
 
-新增用户授权：盘点本机 Linux Agent CLI 并接入历史，明确包括 OpenCode 与 CodeBuddy/cbc。[local-cli-sources](plans/local-cli-sources/task_plan.md) 的 13 来源注册、解析、工程回归与浏览器验收已完成；候选 1.3.0-rc.2（源码 eb40004）离线封包与本地安装已完成，`cchv` 指向该候选，旧 1.2.0 目录与回退链接保留。包装器按独立历史存储归并，逐来源记录已验证能力。
+新增用户授权：盘点本机 Linux Agent CLI 并接入历史，明确包括 OpenCode 与 CodeBuddy/cbc。[local-cli-sources](plans/local-cli-sources/task_plan.md) 的 13 来源注册、解析、工程回归与浏览器验收已完成；候选 1.3.0-rc.2（源码 eb40004）的离线包与安装目录保留，当前 `cchv` 已更新为上述 rc.3。包装器按独立历史存储归并，逐来源记录已验证能力。
 
 用户指定专注 History Viewer、以 Linux 为主，并授权一次性完成 [历史找回与复用计划](plans/history-reuse-product/task_plan.md)。五项增量已实现，候选 `1.3.0-rc.1` 的自动验收、浏览器验证、离线包与干净安装/回滚已完成（源码 0bb034b，本地交付）。U1 按用户回复“稍后安排，U1 保留待试用”保持 pending；不以工程交付替代独立用户体验验收。v1.2.0 仍是既有稳定发行，不使用 Goal 或定时续跑。
 
