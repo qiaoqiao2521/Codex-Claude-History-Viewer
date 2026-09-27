@@ -1,0 +1,76 @@
+Browser tab: 3, Title: "项目与对话 · History Viewer", URL: "http://127.0.0.1:8843/?view=search&q=%E5%8F%8C%E5%8D%83%E5%85%86".
+0 AXWebArea 项目与对话 · History Viewer, URL: 127.0.0.1:8843/?view=search&q=%E5%8F%8C%E5%8D%83%E5%85%86
+	1 container
+		2 heading 项目与对话, Value: 1
+			3 text 项目与对话
+		4 text 选一个项目，继续阅读各个 Agent 的对话。
+		5 button 设置
+		6 text 本地历史 1.3.0-rc.3 · 2 个来源有记录
+		7 tab group 浏览历史
+			8 tab (selectable, settable, boolean) 项目, Value: 0, ID: projectsTab
+			9 tab (selected, settable, boolean) 搜索历史, Value: 1, ID: searchTab
+		10 container reuseLayout
+			11 container Description: 搜索历史, ID: searchView
+				12 container reuseSearchForm
+					13 text 记得的关键词、报错或文件名
+					14 search text field (settable) 记得的关键词、报错或文件名, Value:  双千兆 , ID: reuseQuery
+					15 button 搜索
+					16 container
+						17 text 来源
+						18 pop up button (collapsed, settable) 来源, Value: 全部来源, ID: reuseSource, Secondary Actions: Expand
+							19 menu
+								20 (selected) 全部来源
+								21 AGY CLI
+								22 Antigravity
+								23 Claude Code
+								24 CodeBuddy (cbc)
+								25 Codex
+								26 GitHub Copilot
+								27 Gemini CLI
+								28 openclaw
+								29 OpenCode
+								30 pi
+								31 Prime Agent
+								32 ZCode
+								33 hermes
+					34 container
+						35 text 项目路径
+						36 text field (settable) 项目路径, ID: reuseProject
+					37 container
+						38 text 开始日期
+						39 date field (settable) 开始日期, ID: reuseStart
+							40 container
+								41 stepper
+								42 stepper
+								43 stepper
+							44 pop up button 显示日期选择器 显示日期选择器
+					45 container
+						46 text 结束日期
+						47 date field (settable) 结束日期, ID: reuseEnd
+							48 container
+								49 stepper
+								50 stepper
+								51 stepper
+							52 pop up button 显示日期选择器 显示日期选择器
+				66 text 已显示 1 个结果。
+				67 container
+					68 heading sharedneedle codex source introduction, Value: 3
+						69 link Description: sharedneedle codex source introduction, Value: 127.0.0.1:8843/history?system=linux&source=codex&session=alpha-0001&project=%2Fsynthetic%2Falpha&message=4&source_revision=06892cf1d31c3e06d897b81be1ecc159a6963f359ce81f6b0658afc0ad4d3493&q=%E5%8F%8C%E5%8D%83%E5%85%86
+					70 text codex 2026/9/6 18:00:06 /synthetic/alpha 命中依据：标题、正文或项目匹配；标题短语优先，再按时间排序 在双千兆网卡上验证 OpenWrt 前先核对驱动
+					71 link Description: 打开命中原文（assistant）, Value: 127.0.0.1:8843/history?system=linux&source=codex&session=alpha-0001&project=%2Fsynthetic%2Falpha&message=4&source_revision=06892cf1d31c3e06d897b81be1ecc159a6963f359ce81f6b0658afc0ad4d3493&q=%E5%8F%8C%E5%8D%83%E5%85%86
+					72 button (collapsed) 查看并选择证据, Secondary Actions: Expand
+					73 button 查看工作记录
+			54 container 交接证据 0 / 5, ID: selectionPanel
+				55 heading 交接证据 0 / 5, Value: 2, ID: selectionTitle
+					56 text 交接证据 
+					57 text 0 / 5
+				58 button (disabled) 清空, ID: selectionClear
+				59 text 从会话中选择证据，核对预览后复制或下载。最多 5 条。
+				60 button (disabled) 生成交接预览, ID: selectionPreview
+				61 button (collapsed) 整理为公众号素材, Secondary Actions: Expand
+					62 text 整理为公众号素材
+		63 button (collapsed) 诊断与帮助, Secondary Actions: Expand
+			64 text 诊断与帮助
+		65 text 对话保留在本机。这里只读取历史，不会替你运行 Agent。
+
+The focused UI element is 15 button 搜索

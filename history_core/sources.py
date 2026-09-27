@@ -82,6 +82,30 @@ def _escape_sql_like(value):
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+def _indexed_body_match_sql(alias="sessions"):
+    """Two literal-LIKE parameters; aliases are internal SQL identifiers only.
+
+    The bounded blob is a fast path, not authoritative body coverage. Cached
+    messages also contain later text and raw-format fallbacks. Harness context
+    remains excluded from the fallback, as in the Codex parser's search blob.
+    """
+    return (
+        f"(COALESCE({alias}.search_blob,'') LIKE ? ESCAPE '\\' OR EXISTS ("
+        f"SELECT 1 FROM messages search_message WHERE search_message.session_id={alias}.id "
+        "AND COALESCE(search_message.kind,'') <> 'context' "
+        "AND search_message.text LIKE ? ESCAPE '\\'))"
+    )
+
+
+def _indexed_session_match_sql(alias="sessions"):
+    """Shared title, project, blob and full-message matching (four parameters)."""
+    return (
+        f"(COALESCE({alias}.title,'') LIKE ? ESCAPE '\\' "
+        f"OR COALESCE({alias}.cwd,'') LIKE ? ESCAPE '\\' "
+        f"OR {_indexed_body_match_sql(alias)})"
+    )
+
+
 def detect_runtime_system(os_name=None):
     return "windows" if str(os_name or os.name).lower() == "nt" else "linux"
 
@@ -2195,9 +2219,9 @@ class Indexer:
             sql += " AND files_touched_json LIKE ? ESCAPE '\\'"
             args.append("%" + _escape_sql_like(file_path) + "%")
         for term in terms:
-            sql += " AND (search_blob LIKE ? OR title LIKE ? OR cwd LIKE ?)"
-            like = f"%{term}%"
-            args.extend([like, like, like])
+            sql += " AND " + _indexed_session_match_sql()
+            like = "%" + _escape_sql_like(term) + "%"
+            args.extend([like] * 4)
         sql += order_clause + " LIMIT ?"
         args.append(int(limit))
 
@@ -2243,9 +2267,9 @@ class Indexer:
             where_sql += " AND files_touched_json LIKE ? ESCAPE '\\'"
             args.append("%" + _escape_sql_like(file_path) + "%")
         for term in terms:
-            where_sql += " AND (search_blob LIKE ? OR title LIKE ? OR cwd LIKE ?)"
-            like = f"%{term}%"
-            args.extend([like, like, like])
+            where_sql += " AND " + _indexed_session_match_sql()
+            like = "%" + _escape_sql_like(term) + "%"
+            args.extend([like] * 4)
 
         select_sql = (
             "SELECT id, start_ts_ms, end_ts_ms, title, message_count, cwd, pinned, "

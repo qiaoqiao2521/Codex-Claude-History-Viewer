@@ -1,0 +1,32 @@
+{
+  "pid": 66168,
+  "cwd": "/tmp/hv-search-closure-20260927/source",
+  "command": [
+    "/usr/bin/python3",
+    "-B",
+    "-u",
+    "app.py",
+    "--host",
+    "127.0.0.1",
+    "--port",
+    "8843",
+    "--scan-interval",
+    "3600",
+    "--data-dir",
+    "/tmp/hv-search-closure-20260927/runtime/cache",
+    "--codex-dir",
+    "/tmp/hv-search-closure-20260927/fixture/home/.codex",
+    "--claude-dir",
+    "/tmp/hv-search-closure-20260927/fixture/home/.claude",
+    "--no-wsl"
+  ],
+  "environment": {
+    "HOME": "/tmp/hv-search-closure-20260927/fixture/home",
+    "PATH": "/bin:/usr/bin",
+    "LANG": "C.UTF-8",
+    "XDG_CONFIG_HOME": "/tmp/hv-search-closure-20260927/fixture/home/.config",
+    "XDG_DATA_HOME": "/tmp/hv-search-closure-20260927/fixture/home/.local/share",
+    "XDG_STATE_HOME": "/tmp/hv-search-closure-20260927/fixture/home/.local/state",
+    "XDG_CACHE_HOME": "/tmp/hv-search-closure-20260927/fixture/home/.cache"
+  }
+}

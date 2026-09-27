@@ -1,0 +1,89 @@
+[
+  {
+    "label": "control-before",
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "-v",
+      "test_large_session_search.LargeSessionSearchTests.test_raw_fallback_is_searchable_but_harness_context_stays_excluded",
+      "test_large_search_snippets.LargeSearchSnippetTests.test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts",
+      "test_reuse_contract.ReuseContractTests.test_query_failure_cannot_issue_or_consume_mixed_source_cursor"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "M1",
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "-v",
+      "test_large_session_search.LargeSessionSearchTests.test_raw_fallback_is_searchable_but_harness_context_stays_excluded",
+      "test_large_search_snippets.LargeSearchSnippetTests.test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts",
+      "test_reuse_contract.ReuseContractTests.test_query_failure_cannot_issue_or_consume_mixed_source_cursor"
+    ],
+    "exit_code": 1
+  },
+  {
+    "label": "M1-restored",
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "-v",
+      "test_large_session_search.LargeSessionSearchTests.test_raw_fallback_is_searchable_but_harness_context_stays_excluded",
+      "test_large_search_snippets.LargeSearchSnippetTests.test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts",
+      "test_reuse_contract.ReuseContractTests.test_query_failure_cannot_issue_or_consume_mixed_source_cursor"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "M2",
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "-v",
+      "test_large_search_snippets.LargeSearchSnippetTests.test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts"
+    ],
+    "exit_code": 1
+  },
+  {
+    "label": "M2-restored",
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "-v",
+      "test_large_session_search.LargeSessionSearchTests.test_raw_fallback_is_searchable_but_harness_context_stays_excluded",
+      "test_large_search_snippets.LargeSearchSnippetTests.test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts",
+      "test_reuse_contract.ReuseContractTests.test_query_failure_cannot_issue_or_consume_mixed_source_cursor"
+    ],
+    "exit_code": 0
+  },
+  {
+    "label": "M3",
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "-v",
+      "test_reuse_contract.ReuseContractTests.test_query_failure_cannot_issue_or_consume_mixed_source_cursor"
+    ],
+    "exit_code": 1
+  },
+  {
+    "label": "M3-restored",
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "-v",
+      "test_large_session_search.LargeSessionSearchTests.test_raw_fallback_is_searchable_but_harness_context_stays_excluded",
+      "test_large_search_snippets.LargeSearchSnippetTests.test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts",
+      "test_reuse_contract.ReuseContractTests.test_query_failure_cannot_issue_or_consume_mixed_source_cursor"
+    ],
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,14 @@
+CONFIRMED_UNDERSCORE_PATTERN '_'
+PASS '双千兆' ids=['alpha-0001'] want=['alpha-0001'] snippets={'alpha-0001': [4]} want_idx=[4]
+PASS '双千兆CTX' ids=[] want=[]
+PASS 'tailneedle' ids=['alpha-0001'] want=['alpha-0001'] snippets={'alpha-0001': [3]} want_idx=[3]
+PASS 'rawfallback' ids=['alpha-0001'] want=['alpha-0001'] snippets={'alpha-0001': [7]} want_idx=[7]
+PASS '100%_done\\' ids=['alpha-0001'] want=['alpha-0001'] snippets={'alpha-0001': [6]} want_idx=[6]
+PASS '%' ids=['alpha-0001'] want=['alpha-0001']
+PASS 'Café' ids=['alpha-0001'] want=['alpha-0001'] snippets={'alpha-0001': [5]} want_idx=[5]
+PASS 'betatitle' ids=['beta-0001'] want=['beta-0001'] status=metadata_match_or_excerpt_unavailable
+PASS 'gammaterm1 gammaterm2' ids=['gamma-0001', 'delta-0001'] want=['gamma-0001', 'delta-0001']
+PASS 'claudedistinct' ids=['alpha-0001'] want=['alpha-0001']
+PASS 'nomatchXYZ' ids=[] want=[] errors=[] partial=False
+SOURCE_INTEGRITY OK
+INJECTED_MUTATION: SQL LIKE underscore escape removed; PROBE_EXIT=0

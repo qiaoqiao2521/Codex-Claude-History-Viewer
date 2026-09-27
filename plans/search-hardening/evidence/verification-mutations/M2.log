@@ -1,0 +1,14 @@
+test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts (test_large_search_snippets.LargeSearchSnippetTests.test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts) ... FAIL
+
+======================================================================
+FAIL: test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts (test_large_search_snippets.LargeSearchSnippetTests.test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/hv-hardening-verification-20260927-final/copy/tests/test_large_search_snippets.py", line 105, in test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts
+    self.assertIn('alpha beta actual phrase', snippet['text'])
+AssertionError: 'alpha beta actual phrase' not found in 'alpha early xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.026s
+
+FAILED (failures=1)

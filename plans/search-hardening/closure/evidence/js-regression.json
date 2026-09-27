@@ -1,0 +1,47 @@
+[
+  {
+    "file": "tests/test_audit_ai_panel.js",
+    "exit": 0,
+    "output": "\n18/18 tests passed (0 failed)\n"
+  },
+  {
+    "file": "tests/test_audit_panel.js",
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "file": "tests/test_insight_panels.js",
+    "exit": 0,
+    "output": "ok - testHistoryTargetKeepsQueryAndNavigatesExactMessage\nok - testUsageHtmlEmptyState\nok - testUsageHtmlRendersChipsBarsAndTopSessions\nok - testUsagePanelRenderSetsSummaryAndContent\nok - testBriefingHtmlEmptyState\nok - testBriefingHtmlRendersSections\nok - testBriefingHtmlShowsTruncationNotice\nok - testPlanListHtmlEmptyAndPopulated\nok - testHandoffHtmlDocRendersMarkdownAndTheme\nok - testSetHandoffThemeSwitchesClassAndPersists\nok - testRenderHandoffPreviewUsesCurrentHandoff\nok - testHandoffFilenameSanitizesSessionId\nok - testAuditFetchRefreshesVisibleHandoffPreview\nok - testAudit404ClearsHandoffPreview\nok - testOutOfOrderAuditResponseKeepsLatestSession\nok - testSessionChangeReloadsVisiblePlansPanel\nok - testNarrativeClearedWhenBriefingMovesToAnotherDate\nok - testNarrativeDroppedWhenDateMovedMidFlight\n"
+  },
+  {
+    "file": "tests/test_markdown_cache.js",
+    "exit": 0,
+    "output": ""
+  },
+  {
+    "file": "tests/test_native_resume.js",
+    "exit": 0,
+    "output": "Native resume commands: passed\n"
+  },
+  {
+    "file": "tests/test_reader_navigation.js",
+    "exit": 0,
+    "output": "Project reader navigation: 14 scenarios passed\n"
+  },
+  {
+    "file": "tests/test_settings.js",
+    "exit": 0,
+    "output": "Settings: persisted preferences, reader integration, focus, storage failure, stale responses, and refresh contracts passed\n"
+  },
+  {
+    "file": "tests/test_tool_collapse.js",
+    "exit": 0,
+    "output": "\n18/18 passed\n"
+  },
+  {
+    "file": "tests/test_workspace.js",
+    "exit": 0,
+    "output": "workspace: unified retrieval, safe snippets/deep links, project/file timeline, revision-bound selections, preview/export, diagnosis, keyboard and response races passed\n"
+  }
+]

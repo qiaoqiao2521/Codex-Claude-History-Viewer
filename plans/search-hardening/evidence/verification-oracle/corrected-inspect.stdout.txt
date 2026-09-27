@@ -1,0 +1,18 @@
+{
+  "invalid_timestamp_count": 0,
+  "first_invalid": [],
+  "last_invalid": [],
+  "actual_phrase_rows": [
+    {
+      "rn": 2106,
+      "ts_ms": 1788693420000
+    }
+  ],
+  "snippet_indexes": [
+    1,
+    2,
+    3
+  ],
+  "snippet_contains_phrase": false,
+  "hardcoded_2106_check_reports_excluded": true
+}

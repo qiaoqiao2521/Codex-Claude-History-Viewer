@@ -1,0 +1,14 @@
+test_query_failure_cannot_issue_or_consume_mixed_source_cursor (test_reuse_contract.ReuseContractTests.test_query_failure_cannot_issue_or_consume_mixed_source_cursor) ... FAIL
+
+======================================================================
+FAIL: test_query_failure_cannot_issue_or_consume_mixed_source_cursor (test_reuse_contract.ReuseContractTests.test_query_failure_cannot_issue_or_consume_mixed_source_cursor)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/hv-hardening-verification-20260927-final/copy/tests/test_reuse_contract.py", line 274, in test_query_failure_cannot_issue_or_consume_mixed_source_cursor
+    self.assertTrue(partial['partial'])
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 1 test in 0.024s
+
+FAILED (failures=1)

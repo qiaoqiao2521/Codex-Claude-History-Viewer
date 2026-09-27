@@ -1,0 +1,79 @@
+Browser tab: 3, Title: "项目与对话 · History Viewer", URL: "http://127.0.0.1:8843/?view=search&q=claudedistinct".
+1 AXWebArea 项目与对话 · History Viewer, URL: 127.0.0.1:8843/?view=search&q=claudedistinct
+	2 container
+		3 heading 项目与对话, Value: 1
+			4 text 项目与对话
+		5 text 选一个项目，继续阅读各个 Agent 的对话。
+		6 button 设置
+		7 text 本地历史 1.3.0-rc.3 · 1 个来源有记录
+		8 tab group 浏览历史
+			9 tab (selectable, settable, boolean) 项目, Value: 0, ID: projectsTab
+			10 tab (selected, settable, boolean) 搜索历史, Value: 1, ID: searchTab
+		11 container reuseLayout
+			12 container Description: 搜索历史, ID: searchView
+				13 container reuseSearchForm
+					14 text 记得的关键词、报错或文件名
+					15 search text field (settable) 记得的关键词、报错或文件名, Value: claudedistinct, ID: reuseQuery
+					16 button 搜索
+					17 container
+						18 text 来源
+						19 pop up button (collapsed, settable) 来源, Value: 全部来源, ID: reuseSource, Secondary Actions: Expand
+							20 menu
+								21 (selected) 全部来源
+								22 AGY CLI
+								23 Antigravity
+								24 Claude Code
+								25 CodeBuddy (cbc)
+								26 Codex
+								27 GitHub Copilot
+								28 Gemini CLI
+								29 openclaw
+								30 OpenCode
+								31 pi
+								32 Prime Agent
+								33 ZCode
+								34 hermes
+					35 container
+						36 text 项目路径
+						37 text field (settable) 项目路径, ID: reuseProject
+					38 container
+						39 text 开始日期
+						40 date field (settable) 开始日期, ID: reuseStart
+							41 container
+								42 stepper
+								43 stepper
+								44 stepper
+							45 pop up button 显示日期选择器 显示日期选择器
+					46 container
+						47 text 结束日期
+						48 date field (settable) 结束日期, ID: reuseEnd
+							49 container
+								50 stepper
+								51 stepper
+								52 stepper
+							53 pop up button 显示日期选择器 显示日期选择器
+				54 text 已显示 1 个结果。
+				55 container searchWarnings
+					56 text 部分来源未能读取：codex（source_unavailable）。以下结果并非全部历史。
+					57 text 部分来源读取失败，本次只能查看第一页。请选择可用来源重新搜索，或修复来源后重试。
+				58 container
+					59 heading sharedneedle claude source introduction, Value: 3
+						60 link Description: sharedneedle claude source introduction, Value: 127.0.0.1:8843/history?system=linux&source=claude&session=alpha-0001&project=%2Fsynthetic%2Fclaude&message=1&source_revision=81544ecef6666364d7573f090560e9aeb7aa5e82acf5475e75d86605b5647766&q=claudedistinct
+					61 text claude 2026/9/6 19:06:41 /synthetic/claude 命中依据：标题、正文或项目匹配；标题短语优先，再按时间排序 claudedistinct only Claude reply
+					62 link Description: 打开命中原文（assistant）, Value: 127.0.0.1:8843/history?system=linux&source=claude&session=alpha-0001&project=%2Fsynthetic%2Fclaude&message=1&source_revision=81544ecef6666364d7573f090560e9aeb7aa5e82acf5475e75d86605b5647766&q=claudedistinct
+					63 button (collapsed) 查看并选择证据, Secondary Actions: Expand
+					64 button 查看工作记录
+			65 container 交接证据 0 / 5, ID: selectionPanel
+				66 heading 交接证据 0 / 5, Value: 2, ID: selectionTitle
+					67 text 交接证据 
+					68 text 0 / 5
+				69 button (disabled) 清空, ID: selectionClear
+				70 text 从会话中选择证据，核对预览后复制或下载。最多 5 条。
+				71 button (disabled) 生成交接预览, ID: selectionPreview
+				72 button (collapsed) 整理为公众号素材, Secondary Actions: Expand
+					73 text 整理为公众号素材
+		74 button (collapsed) 诊断与帮助, Secondary Actions: Expand
+			75 text 诊断与帮助
+		76 text 对话保留在本机。这里只读取历史，不会替你运行 Agent。
+
+The focused UI element is 16 button 搜索

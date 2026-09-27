@@ -15,7 +15,8 @@ import time
 
 from . import service
 from .evidence import source_store_id
-from .sources import _escape_sql_like, deserialize_audit_summary
+from .sources import (_escape_sql_like, _indexed_body_match_sql,
+                      _indexed_session_match_sql, deserialize_audit_summary)
 from .providers import SOURCES, canonical_source, uses_message_index
 
 MAX_CANDIDATES = 500
@@ -170,7 +171,6 @@ def _candidates(idx, query='', project=None, start_ms=None, end_ms=None, file_pa
     native = not uses_message_index(idx)
     args = []
     if not native:
-        text = "COALESCE(s.search_blob,'')"
         title = "COALESCE(s.title,'')"
         cwd = "COALESCE(s.cwd,'')"
         timestamp = 's.end_ts_ms'
@@ -178,8 +178,8 @@ def _candidates(idx, query='', project=None, start_ms=None, end_ms=None, file_pa
         fields = 's.id,s.title,s.cwd,s.start_ts_ms,s.end_ts_ms,s.message_count,s.files_touched_json,s.outcome_signal,s.tool_summary_json,s.command_intents_json,s.remote_context_json,s.value_score,s.friction_score,s.action_density'
         def match(term):
             like = '%' + _escape_sql_like(term) + '%'
-            args.extend([like]*3)
-            return f"({text} LIKE ? ESCAPE '\\' OR {title} LIKE ? ESCAPE '\\' OR {cwd} LIKE ? ESCAPE '\\')"
+            args.extend([like]*4)
+            return _indexed_session_match_sql('s')
     elif idx.source == 'hermes':
         title, cwd, timestamp, table = "COALESCE(s.title,'')", "''", 'COALESCE(s.ended_at,s.started_at)*1000', 'sessions s'
         fields = f's.id,s.title,{cwd} AS cwd,s.started_at*1000 AS start_ts_ms,COALESCE(s.ended_at,s.started_at)*1000 AS end_ts_ms,s.message_count'
@@ -202,8 +202,8 @@ def _candidates(idx, query='', project=None, start_ms=None, end_ms=None, file_pa
             rank += f' + CASE WHEN instr(lower({title}),lower(?))>0 THEN 2 ELSE 0 END'
             rank_args.append(term)
         if not native:
-            rank += f' + CASE WHEN instr(lower({text}),lower(?))>0 THEN 4 ELSE 0 END'
-            rank_args.append(query)
+            rank += f' + CASE WHEN {_indexed_body_match_sql("s")} THEN 4 ELSE 0 END'
+            rank_args.extend(['%' + _escape_sql_like(query) + '%'] * 2)
         rank += ')'
     predicates = [match(term) for term in terms]
     if project is not None:
@@ -222,10 +222,50 @@ def _candidates(idx, query='', project=None, start_ms=None, end_ms=None, file_pa
     return rows[:MAX_CANDIDATES], capped
 
 
+def _indexed_snippets(idx, sid, query, terms):
+    """Locate full indexed text in SQLite; return only three short excerpts.
+
+    Number before filtering so deep links keep the reader's timestamp/id order.
+    The window contains IDs only, not copies of arbitrarily long message bodies.
+    Query work remains bounded by query_budget, rather than a silent text prefix.
+    """
+    if not terms:
+        return [], False
+    text = "COALESCE(m.text,'')"
+    occurrence = f'instr(lower({text}),lower(?))'
+    # Prefer the full phrase; otherwise show the earliest individual query term.
+    term_position = f'CASE WHEN {occurrence}>0 THEN {occurrence} ELSE length({text})+1 END'
+    first_term = term_position if len(terms) == 1 else 'min(' + ','.join([term_position] * len(terms)) + ')'
+    position = f'CASE WHEN {occurrence}>0 THEN {occurrence} ELSE {first_term} END'
+    predicate = ' OR '.join([f'{occurrence}>0'] * len(terms))
+    sql = f'''
+        WITH ordered AS (
+            SELECT id, ROW_NUMBER() OVER (ORDER BY ts_ms ASC,id ASC)-1 AS message_index
+            FROM messages WHERE session_id=?
+        )
+        SELECT o.message_index,m.role,
+               substr({text},max(1,({position})-70),240) AS text,
+               length({text})>240 AS truncated
+        FROM ordered o JOIN messages m ON m.id=o.id
+        WHERE COALESCE(m.kind,'') <> 'context' AND ({predicate})
+        ORDER BY o.message_index ASC LIMIT 3
+    '''
+    args = [sid, query, query]
+    for term in terms:
+        args.extend([term, term])
+    args.extend(terms)
+    with query_budget(idx) as conn:
+        rows = conn.execute(sql, args).fetchall()
+    return [dict(message_index=row['message_index'], role=row['role'], text=row['text'],
+                 truncated=bool(row['truncated'])) for row in rows], False
+
+
 def _snippets(idx, sid, query):
     query, terms = _terms(query)
     matches = []
     native = not uses_message_index(idx)
+    if not native:
+        return _indexed_snippets(idx, sid, query, terms)
     if native and idx.source in ('opencode', 'zcode'):
         from .provenance import validate_native_size
         validate_native_size(idx, sid)
@@ -234,10 +274,7 @@ def _snippets(idx, sid, query):
         truncated = len(rows) > MAX_MESSAGE_ROWS
         messages = ((n, row.get('role',''), str(row.get('text') or '')[:MAX_MESSAGE_CHARS]) for n,row in enumerate(rows[:MAX_MESSAGE_ROWS]))
     else:
-        if native:
-            sql = 'SELECT COALESCE(role,\'\') AS role, substr((COALESCE(content,\'\') || char(10) || COALESCE(reasoning,\'\')),1,?) AS text FROM messages WHERE session_id=? ORDER BY timestamp ASC,id ASC LIMIT ?'
-        else:
-            sql = 'SELECT role,substr(text,1,?) AS text FROM messages WHERE session_id=? ORDER BY ts_ms ASC,id ASC LIMIT ?'
+        sql = 'SELECT COALESCE(role,\'\') AS role, substr((COALESCE(content,\'\') || char(10) || COALESCE(reasoning,\'\')),1,?) AS text FROM messages WHERE session_id=? ORDER BY timestamp ASC,id ASC LIMIT ?'
         with query_budget(idx) as conn:
             rows = conn.execute(sql, (MAX_MESSAGE_CHARS, sid, MAX_MESSAGE_ROWS+1)).fetchall()
         truncated = len(rows) > MAX_MESSAGE_ROWS

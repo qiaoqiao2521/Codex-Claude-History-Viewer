@@ -1,0 +1,131 @@
+History viewer running on http://127.0.0.1:8843
+linux/agy: /tmp/hv-search-closure-20260927/fixture/home/.gemini/antigravity-cli
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.gemini/antigravity-cli/conversation_summaries.db
+  index:    unavailable
+linux/antigravity: /tmp/hv-search-closure-20260927/fixture/home/.gemini/antigravity
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.gemini/antigravity/conversation_summaries.db
+  index:    unavailable
+linux/claude: /tmp/hv-search-closure-20260927/fixture/home/.claude
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.claude/projects
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_claude.sqlite
+linux/codebuddy: /tmp/hv-search-closure-20260927/fixture/home/.codebuddy
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.codebuddy/projects
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_codebuddy.sqlite
+linux/codex: /tmp/hv-search-closure-20260927/fixture/home/.codex
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.codex/sessions
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux.sqlite
+linux/copilot: /tmp/hv-search-closure-20260927/fixture/home/.copilot
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.copilot/session-state
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_copilot.sqlite
+linux/gemini: /tmp/hv-search-closure-20260927/fixture/home/.gemini
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.gemini/tmp
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_gemini.sqlite
+linux/openclaw: /tmp/hv-search-closure-20260927/fixture/home/.openclaw
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.openclaw/agents
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_openclaw.sqlite
+linux/opencode: /tmp/hv-search-closure-20260927/fixture/home/.local/share/opencode
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.local/share/opencode/opencode.db
+  index:    unavailable
+linux/pi: /tmp/hv-search-closure-20260927/fixture/home/.pi/agent
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.pi/agent/sessions
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_pi.sqlite
+linux/prime: /tmp/hv-search-closure-20260927/fixture/home/.prime/agent
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.prime/agent/sessions
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_prime.sqlite
+linux/zcode: /tmp/hv-search-closure-20260927/fixture/home/.zcode/cli/db
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.zcode/cli/db/db.sqlite
+  index:    unavailable
+127.0.0.1 - - [27/Sep/2026 14:18:29] "GET /api/reuse/health HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:18:39] "GET /?view=search HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:18:39] "GET /workspace.css HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:18:39] "GET /styles.css HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:18:39] "GET /workspace.js HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:18:39] "GET /settings.js HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:18:39] "GET /api/reuse/health HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:18:39] code 404, message File not found
+127.0.0.1 - - [27/Sep/2026 14:18:39] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [27/Sep/2026 14:21:52] "GET /api/reuse/search?q=%E5%8F%8C%E5%8D%83%E5%85%86&limit=20 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:21:59] "GET /history?system=linux&source=codex&session=alpha-0001&project=%2Fsynthetic%2Falpha&message=4&source_revision=06892cf1d31c3e06d897b81be1ecc159a6963f359ce81f6b0658afc0ad4d3493&q=%E5%8F%8C%E5%8D%83%E5%85%86 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:21:59] "GET /styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:21:59] "GET /app.js HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:21:59] "GET /settings.js HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:21:59] "GET /api/sources HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:22:00] "GET /api/reuse/projects?limit=20 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:22:00] "GET /api/linux/codex/session/alpha-0001?source_revision=06892cf1d31c3e06d897b81be1ecc159a6963f359ce81f6b0658afc0ad4d3493 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:22:00] "GET /api/linux/codex/session/alpha-0001/audit HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:22:00] "GET /api/linux/codex/session/alpha-0001/messages?offset=0&limit=200&source_revision=06892cf1d31c3e06d897b81be1ecc159a6963f359ce81f6b0658afc0ad4d3493 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:22:00] "GET /api/reuse/sessions?project=%2Fsynthetic%2Falpha&limit=50 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:22:08] "GET /?view=search&q=%E5%8F%8C%E5%8D%83%E5%85%86 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:22:08] "GET /api/reuse/search?q=%E5%8F%8C%E5%8D%83%E5%85%86&limit=20 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:22:17] "GET /api/reuse/search?q=tailneedle&limit=20 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:22:17] "GET /api/reuse/search?q=paginationneedle&limit=20 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:22:43] "POST /api/reuse/refresh HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:22:54] "GET /api/reuse/search?q=paginationneedle&limit=20&cursor=eyJvZmZzZXQiOiAyMCwgInJldmlzaW9uIjogImE3ODdkMzQ0MjhkZTljMmMxZGY5ZmJhNjc4OTFhMmMyYzE1NDUwOGUzZjhhMDc2Y2NjODQ5MWY2MGFmNzQ2MDciLCAicXVlcnkiOiAiNzI3MTQ4OWQxMDA4MmZlYmEyNTFhZWUwYzc3ZjBjN2ZjYTMyNTMyOGRiMDdiZDcyMzIxMThlYzU0ZWIyOTQ3ZCJ9 HTTP/1.1" 409 -
+127.0.0.1 - - [27/Sep/2026 14:23:35] "GET /api/reuse/search?q=paginationneedle&limit=20 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:23:54] "GET /api/reuse/search?q=paginationneedle&limit=20&cursor=eyJvZmZzZXQiOiAyMCwgInJldmlzaW9uIjogImVhNGVkZmVjNzhlOTFkOGQyNWNhMWJiNWQ2ZjNkYTFhY2RjOGNhODQ0ZThhN2Q1MDliMDJmMTA3ZjQzYjc4OGMiLCAicXVlcnkiOiAiNzI3MTQ4OWQxMDA4MmZlYmEyNTFhZWUwYzc3ZjBjN2ZjYTMyNTMyOGRiMDdiZDcyMzIxMThlYzU0ZWIyOTQ3ZCJ9 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:23:54] "GET /history?system=linux&source=codex&session=alpha-0001&project=%2Fsynthetic%2Falpha&message=4&source_revision=0000000000000000000000000000000000000000000000000000000000000000&q=%E5%8F%8C%E5%8D%83%E5%85%86 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:23:54] "GET /styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:23:54] "GET /app.js HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:23:54] "GET /settings.js HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:23:54] "GET /api/sources HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:23:54] "GET /api/reuse/projects?limit=20 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:23:54] "GET /api/linux/codex/session/alpha-0001?source_revision=0000000000000000000000000000000000000000000000000000000000000000 HTTP/1.1" 409 -
+History viewer running on http://127.0.0.1:8843
+linux/agy: /tmp/hv-search-closure-20260927/fixture/home/.gemini/antigravity-cli
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.gemini/antigravity-cli/conversation_summaries.db
+  index:    unavailable
+linux/antigravity: /tmp/hv-search-closure-20260927/fixture/home/.gemini/antigravity
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.gemini/antigravity/conversation_summaries.db
+  index:    unavailable
+linux/claude: /tmp/hv-search-closure-20260927/fixture/home/.claude
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.claude/projects
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_claude.sqlite
+linux/codebuddy: /tmp/hv-search-closure-20260927/fixture/home/.codebuddy
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.codebuddy/projects
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_codebuddy.sqlite
+linux/codex: /tmp/hv-search-closure-20260927/fixture/home/.codex
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.codex/sessions
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux.sqlite
+linux/copilot: /tmp/hv-search-closure-20260927/fixture/home/.copilot
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.copilot/session-state
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_copilot.sqlite
+linux/gemini: /tmp/hv-search-closure-20260927/fixture/home/.gemini
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.gemini/tmp
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_gemini.sqlite
+linux/openclaw: /tmp/hv-search-closure-20260927/fixture/home/.openclaw
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.openclaw/agents
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_openclaw.sqlite
+linux/opencode: /tmp/hv-search-closure-20260927/fixture/home/.local/share/opencode
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.local/share/opencode/opencode.db
+  index:    unavailable
+linux/pi: /tmp/hv-search-closure-20260927/fixture/home/.pi/agent
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.pi/agent/sessions
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_pi.sqlite
+linux/prime: /tmp/hv-search-closure-20260927/fixture/home/.prime/agent
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.prime/agent/sessions
+  index:    /tmp/hv-search-closure-20260927/runtime/cache/index_linux_prime.sqlite
+linux/zcode: /tmp/hv-search-closure-20260927/fixture/home/.zcode/cli/db
+  sessions: /tmp/hv-search-closure-20260927/fixture/home/.zcode/cli/db/db.sqlite
+  index:    unavailable
+127.0.0.1 - - [27/Sep/2026 14:24:57] "GET /?view=search HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:24:57] "GET /styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:24:57] "GET /settings.js HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:24:57] "GET /workspace.css HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:24:57] "GET /workspace.js HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:24:57] "GET /api/reuse/health HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:24:57] "GET /api/reuse/search?q=claudedistinct&limit=20 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:26:16] "GET /api/reuse/health HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:26:16] "GET /api/reuse/search?q=claudedistinct HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:26:16] "GET /api/reuse/search?q=tailneedle HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:26:37] "GET /?view=search&q=tailneedle HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:26:37] "GET /workspace.css HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:26:37] "GET /settings.js HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:26:37] "GET /styles.css HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:26:37] "GET /workspace.js HTTP/1.1" 304 -
+127.0.0.1 - - [27/Sep/2026 14:26:37] "GET /api/reuse/health HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:26:37] "GET /api/reuse/search?q=tailneedle&limit=20 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:26:47] "GET /api/reuse/search?q=tailneedle&limit=20 HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:27:09] "POST /api/reuse/refresh HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:27:09] "GET /api/reuse/health HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:27:09] "GET /api/reuse/search?q=tailneedle HTTP/1.1" 200 -
+127.0.0.1 - - [27/Sep/2026 14:27:23] "GET /api/reuse/search?q=tailneedle&limit=20 HTTP/1.1" 200 -

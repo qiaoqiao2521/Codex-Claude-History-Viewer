@@ -1,0 +1,109 @@
+{
+  "_comment": "Hand-authored expectations. Indexes are construction-defined: codex session_meta is not a message; messages enumerate in timestamp order from 0.",
+  "alpha_expected_indexes": {
+    "alphagoal": 0,
+    "filler": 1,
+    "ctx": 2,
+    "m_long": 3,
+    "m_target": 4,
+    "m_utf": 5,
+    "m_lit": 6,
+    "rawfallback": 7
+  },
+  "cases": [
+    {
+      "q": "双千兆",
+      "sessions": [
+        "alpha-0001"
+      ],
+      "snippet_indexes": [
+        4
+      ],
+      "forbidden_indexes": [
+        2
+      ],
+      "note": "ctx excluded from snippets; blob>2M must not hide idx4"
+    },
+    {
+      "q": "双千兆CTX",
+      "sessions": [],
+      "note": "context excluded from session match"
+    },
+    {
+      "q": "tailneedle",
+      "sessions": [
+        "alpha-0001"
+      ],
+      "snippet_indexes": [
+        3
+      ],
+      "note": "tail of a 12k-char message must be reachable"
+    },
+    {
+      "q": "rawfallback",
+      "sessions": [
+        "alpha-0001"
+      ],
+      "snippet_indexes": [
+        7
+      ],
+      "note": "raw fallback excluded from blob, present in messages"
+    },
+    {
+      "q": "100%_done\\",
+      "sessions": [
+        "alpha-0001"
+      ],
+      "snippet_indexes": [
+        6
+      ],
+      "note": "literal LIKE"
+    },
+    {
+      "q": "%",
+      "sessions": [
+        "alpha-0001"
+      ],
+      "note": "literal percent must not match everything; only m_lit contains a literal %"
+    },
+    {
+      "q": "Café",
+      "sessions": [
+        "alpha-0001"
+      ],
+      "snippet_indexes": [
+        5
+      ],
+      "note": "ASCII case folding expected; É folding undefined → contract_gap probe"
+    },
+    {
+      "q": "betatitle",
+      "sessions": [
+        "beta-0001"
+      ],
+      "snippets_empty": true,
+      "note": "project-path-only match → metadata status, no body snippets"
+    },
+    {
+      "q": "gammaterm1 gammaterm2",
+      "sessions": [
+        "gamma-0001",
+        "delta-0001"
+      ],
+      "note": "cross-message AND; earliest snippet index ≤ 2102；v2 新增 delta-0001 同词命中"
+    },
+    {
+      "q": "claudedistinct",
+      "sessions": [
+        "alpha-0001"
+      ],
+      "source": "claude",
+      "note": "same id in codex must not appear"
+    },
+    {
+      "q": "nomatchXYZ",
+      "sessions": [],
+      "zero_hit_clean": true
+    }
+  ]
+}

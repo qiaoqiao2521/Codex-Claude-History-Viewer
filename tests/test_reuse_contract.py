@@ -245,13 +245,19 @@ class ReuseContractTests(unittest.TestCase):
         self.assertTrue(has_error_evidence or observed_errors > 0,
                         "tool failure after evidence cap must remain visible as a concrete error or observed failure count")
 
-    def test_message_excerpt_limit_is_exposed_when_match_is_beyond_read_budget(self):
+    def test_long_message_match_is_located_before_excerpt_is_bounded(self):
         self.add_session("codex", "long", text="prefix " + "x" * (reuse.MAX_MESSAGE_CHARS + 100) + " late-needle")
         self.start()
         page = reuse.search(self.indexers, query="late-needle")
         self.assertEqual(len(page["items"]), 1)
-        self.assertTrue(page["truncated"], "bounded text reads must not silently masquerade as complete search")
-        self.assertTrue(page["partial"])
+        self.assertFalse(page["truncated"])
+        self.assertFalse(page["partial"])
+        self.assertEqual(page["items"][0]["snippet_status"], "matched")
+        snippet = page["items"][0]["snippets"][0]
+        self.assertEqual(snippet["message_index"], 0)
+        self.assertIn("late-needle", snippet["text"])
+        self.assertLessEqual(len(snippet["text"]), 240)
+        self.assertTrue(snippet["truncated"], "the display excerpt is still bounded")
 
     def test_query_failure_cannot_issue_or_consume_mixed_source_cursor(self):
         for source in ('codex', 'claude'):

@@ -1,0 +1,11 @@
+--- history_core/reuse.py
++++ history_core/reuse.py
+@@ -231,7 +231,7 @@
+     """
+     if not terms:
+         return [], False
+-    text = "COALESCE(m.text,'')"
++    text = "substr(COALESCE(m.text,''),1,8192)"
+     occurrence = f'instr(lower({text}),lower(?))'
+     # Prefer the full phrase; otherwise show the earliest individual query term.
+     term_position = f'CASE WHEN {occurrence}>0 THEN {occurrence} ELSE length({text})+1 END'

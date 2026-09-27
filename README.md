@@ -238,3 +238,5 @@ is no execution or new authorization in a handoff. Weak-session bulk cleanup is 
 
 This release is validated on **Linux, Python 3.11/3.12**. Windows/WSL compatibility code
 remains present but is not newly certified. See [release validation and rollback](docs/release-v1.2.0.md).
+
+[检索词法与摘录边界](docs/search-semantics.md)：大小写、字面字符、摘录顺序及修订变化说明。

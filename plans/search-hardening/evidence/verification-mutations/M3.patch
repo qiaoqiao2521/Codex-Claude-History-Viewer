@@ -1,0 +1,11 @@
+--- history_core/reuse.py
++++ history_core/reuse.py
+@@ -326,7 +326,7 @@
+                 item['match_reason'] = '标题、正文或项目匹配；标题短语优先，再按时间排序'
+                 items.append(item)
+         except (OSError, ValueError, sqlite3.Error) as exc:
+-            errors.append({'system':system,'source':src,'error':error_code(exc)})
++            pass
+     items.sort(key=lambda x:(-x['score'],-(x['updated_at'] or 0),x['source'],x['store_id'],x['id']))
+     result = _finish(items,offset,limit,revision,qhash,errors,truncated)
+     for item in result['items']:

@@ -1,0 +1,7 @@
+== A-p5: five early single-term hits vs late phrase ==
+delta snippets: [1010, 1012, 1013] → phrase@2106 EXCLUDED by earlier any-term hits
+== B-p2redo: cursor vs INDEX revision ==
+cursor issued: True
+page2 ok while index unchanged: ['gamma-0001'] partial= False
+B-p2redo stale cursor rejected after index change: index_revision_changed: restart search
+recovery: fresh search items= ['filler2-0001', 'gamma-0001', 'newer-0001']

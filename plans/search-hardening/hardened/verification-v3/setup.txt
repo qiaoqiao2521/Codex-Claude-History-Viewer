@@ -1,0 +1,2 @@
+SETUP codex sessions=34 retained_parser_version=1
+SETUP claude sessions=1 retained_parser_version=1

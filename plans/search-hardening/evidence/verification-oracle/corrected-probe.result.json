@@ -1,0 +1,10 @@
+{
+  "command": [
+    "/usr/bin/python3",
+    "/tmp/hv-verify-oracle-wwrkfra4/verification/corrected/probe.py",
+    "/home/muqiao/桌面/Codex-Claude-History-Viewer",
+    "/tmp/hv-verify-oracle-wwrkfra4/verification/corrected/probe-cache"
+  ],
+  "cwd": "/tmp/hv-verify-oracle-wwrkfra4/verification",
+  "exit_code": 0
+}

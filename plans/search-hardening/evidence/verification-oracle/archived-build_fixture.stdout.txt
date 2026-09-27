@@ -1,0 +1,8 @@
+fixture written:
+  /tmp/hv-verify-oracle-wwrkfra4/verification/archived/home/.codex/sessions/2026/09/06/rollout-2026-09-06T10-00-00-alpha.jsonl 2113443 bytes
+  /tmp/hv-verify-oracle-wwrkfra4/verification/archived/home/.codex/sessions/2026/09/06/rollout-2026-09-06T10-00-20-beta.jsonl 523 bytes
+  /tmp/hv-verify-oracle-wwrkfra4/verification/archived/home/.codex/sessions/2026/09/06/rollout-2026-09-06T10-00-30-quiet.jsonl 338 bytes
+  /tmp/hv-verify-oracle-wwrkfra4/verification/archived/home/.codex/sessions/2026/09/06/rollout-2026-09-06T10-00-40-gamma.jsonl 369208 bytes
+  /tmp/hv-verify-oracle-wwrkfra4/verification/archived/home/.codex/sessions/2026/09/06/rollout-2026-09-06T10-40-00-filler2.jsonl 343 bytes
+  /tmp/hv-verify-oracle-wwrkfra4/verification/archived/home/.codex/sessions/2026/09/06/rollout-2026-09-06T10-41-40-delta.jsonl 370050 bytes
+  /tmp/hv-verify-oracle-wwrkfra4/verification/archived/home/.claude/projects/proj-claude/alpha-0001.jsonl 411 bytes

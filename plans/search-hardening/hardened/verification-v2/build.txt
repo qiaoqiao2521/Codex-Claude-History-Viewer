@@ -1,0 +1,1 @@
+{"root": "/tmp/cchv-hardened-final-replay-v2-20260927/fixture", "files": 35, "valid_timestamps": 2184, "pagination_query": "paginationneedle", "pagination_hits": 25}

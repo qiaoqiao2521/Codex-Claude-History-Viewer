@@ -1,0 +1,849 @@
+{
+  "schema_version": 1,
+  "roots": {
+    "codex": "/tmp/cchv-hardened-final-replay-v3-20260927/fixture/home/.codex/sessions",
+    "claude": "/tmp/cchv-hardened-final-replay-v3-20260927/fixture/home/.claude/projects"
+  },
+  "cases": [
+    {
+      "name": "duplicate_ids_distinct_stores",
+      "query": "sharedneedle",
+      "items": [
+        {
+          "system": "linux",
+          "source": "claude",
+          "store_id": "70d66ec071e6fdc91cbeb9b16335ae413e48af1a4e6aaa6c4941691536349354",
+          "id": "alpha-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "sharedneedle claude source introduction",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "alpha-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "sharedneedle codex source introduction",
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "two_million_tail",
+      "query": "after2mneedle",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "alpha-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 1,
+              "role": "assistant",
+              "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxafter2mneedle 后置系统",
+              "truncated": true
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "chinese_two_million_tail",
+      "query": "后置系统",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "alpha-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 1,
+              "role": "assistant",
+              "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxafter2mneedle 后置系统",
+              "truncated": true
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "8192_tail",
+      "query": "tailneedle",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "alpha-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 3,
+              "role": "assistant",
+              "text": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyytailneedleyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+              "truncated": true
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "chinese_after_context",
+      "query": "双千兆",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "alpha-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 4,
+              "role": "assistant",
+              "text": "在双千兆网卡上验证 OpenWrt 前先核对驱动",
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "context_excluded",
+      "query": "ctxonlyneedle",
+      "items": [],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "literal_underscore",
+      "query": "under_score",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "literal-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 1,
+              "role": "assistant",
+              "text": "under_score percent%done slash\\path",
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "literal_percent",
+      "query": "percent%done",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "literal-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 1,
+              "role": "assistant",
+              "text": "under_score percent%done slash\\path",
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "literal_backslash",
+      "query": "slash\\path",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "literal-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 1,
+              "role": "assistant",
+              "text": "under_score percent%done slash\\path",
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "ascii_fold",
+      "query": "TAILNEEDLE",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "alpha-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 3,
+              "role": "assistant",
+              "text": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyytailneedleyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+              "truncated": true
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "G1_non_ascii_upper",
+      "query": "CAFÉ",
+      "items": [],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "G1_non_ascii_exact",
+      "query": "café",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "alpha-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 5,
+              "role": "assistant",
+              "text": "Café café Ωω 🎯 end",
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "metadata_only",
+      "query": "cwdmetaneedle",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "metadata-0001",
+          "snippet_status": "metadata_match_or_excerpt_unavailable",
+          "snippets": []
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "cross_message_AND",
+      "query": "crosstermone crosstermtwo",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "cross-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "crosstermone first",
+              "truncated": false
+            },
+            {
+              "message_index": 1,
+              "role": "assistant",
+              "text": "crosstermtwo second",
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "G2_early_any_term_order",
+      "query": "gammaterm1 gammaterm2",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "delta-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 1,
+              "role": "assistant",
+              "text": "Weak 0 gammaterm1",
+              "truncated": false
+            },
+            {
+              "message_index": 2,
+              "role": "assistant",
+              "text": "Weak 1 gammaterm1",
+              "truncated": false
+            },
+            {
+              "message_index": 3,
+              "role": "assistant",
+              "text": "Weak 2 gammaterm1",
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "clean_no_match",
+      "query": "doesnotexistneedle",
+      "items": [],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    },
+    {
+      "name": "source_query_error",
+      "query": "sharedneedle",
+      "items": [
+        {
+          "system": "linux",
+          "source": "claude",
+          "store_id": "70d66ec071e6fdc91cbeb9b16335ae413e48af1a4e6aaa6c4941691536349354",
+          "id": "alpha-0001",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "sharedneedle claude source introduction",
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "errors": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "error": "source_schema_unavailable"
+        }
+      ],
+      "partial": true,
+      "truncated": false,
+      "pagination_status": "restart_after_source_error",
+      "freshness": "unknown",
+      "fault": "codex_query"
+    },
+    {
+      "name": "snippet_query_error",
+      "query": "双千兆",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "alpha-0001",
+          "snippet_status": "query_budget_exceeded",
+          "snippets": []
+        }
+      ],
+      "errors": [],
+      "partial": true,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown",
+      "fault": "snippet_query"
+    },
+    {
+      "name": "pagination_25",
+      "query": "paginationneedle",
+      "items": [
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-24",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 24",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-23",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 23",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-22",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 22",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-21",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 21",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-20",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 20",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-19",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 19",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-18",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 18",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-17",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 17",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-16",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 16",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-15",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 15",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-14",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 14",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-13",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 13",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-12",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 12",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-11",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 11",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-10",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 10",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-09",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 09",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-08",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 08",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-07",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 07",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-06",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 06",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-05",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 05",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-04",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 04",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-03",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 03",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-02",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 02",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-01",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 01",
+              "truncated": false
+            }
+          ]
+        },
+        {
+          "system": "linux",
+          "source": "codex",
+          "store_id": "2dd4a1c42d07f1e71ca20144c4a0772832ad13730bac1a90d7bcc7d432476d43",
+          "id": "page-00",
+          "snippet_status": "matched",
+          "snippets": [
+            {
+              "message_index": 0,
+              "role": "user",
+              "text": "paginationneedle case 00",
+              "truncated": false
+            }
+          ]
+        }
+      ],
+      "errors": [],
+      "partial": false,
+      "truncated": false,
+      "pagination_status": "available",
+      "freshness": "unknown"
+    }
+  ],
+  "deep_message": {
+    "source": "codex",
+    "id": "delta-0001",
+    "index": 2106,
+    "text": "gammaterm1 gammaterm2 完整短语在深处"
+  },
+  "scope": "synthetic Codex and Claude; current G1/G2 observations, no product change"
+}

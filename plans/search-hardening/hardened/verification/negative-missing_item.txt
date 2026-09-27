@@ -1,0 +1,21 @@
+FAIL duplicate_ids_distinct_stores AssertionError item count: got=1 expected=2
+FAIL two_million_tail AssertionError item count: got=0 expected=1
+FAIL chinese_two_million_tail AssertionError item count: got=0 expected=1
+FAIL 8192_tail AssertionError item count: got=0 expected=1
+FAIL chinese_after_context AssertionError item count: got=0 expected=1
+PASS context_excluded
+FAIL literal_underscore AssertionError item count: got=0 expected=1
+FAIL literal_percent AssertionError item count: got=0 expected=1
+FAIL literal_backslash AssertionError item count: got=0 expected=1
+FAIL ascii_fold AssertionError item count: got=0 expected=1
+PASS G1_non_ascii_upper
+FAIL G1_non_ascii_exact AssertionError item count: got=0 expected=1
+FAIL metadata_only AssertionError item count: got=0 expected=1
+FAIL cross_message_AND AssertionError item count: got=0 expected=1
+FAIL G2_early_any_term_order AssertionError item count: got=0 expected=1
+PASS clean_no_match
+FAIL source_query_error AssertionError item count: got=0 expected=1
+FAIL snippet_query_error AssertionError item count: got=0 expected=1
+FAIL pagination_25 AssertionError item count: got=19 expected=20
+PASS source_jsonl_unchanged cache_bytes_revision_parser_versions_unchanged no_query_scan_or_write
+{"cases": 19, "passed": 3, "failed": ["duplicate_ids_distinct_stores", "two_million_tail", "chinese_two_million_tail", "8192_tail", "chinese_after_context", "literal_underscore", "literal_percent", "literal_backslash", "ascii_fold", "G1_non_ascii_exact", "metadata_only", "cross_message_AND", "G2_early_any_term_order", "source_query_error", "snippet_query_error", "pagination_25"], "corruption": "missing_item"}

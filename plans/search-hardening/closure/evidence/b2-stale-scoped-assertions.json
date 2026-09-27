@@ -1,0 +1,5 @@
+{
+  "correction": "Previous getByRole level option was unsupported; counted page h1/h2. Scoped to observed result container.",
+  "message": "读取失败（index_revision_changed）。索引已变化，请重新搜索或重新选择项目，从第一页读取。已清除旧结果。",
+  "moreVisible": false
+}

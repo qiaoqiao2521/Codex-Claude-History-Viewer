@@ -1,0 +1,119 @@
+{
+  "schema_version": "capmesh.experiment.v1",
+  "id": "exp-c0a251b7c92847ac24ad5f43",
+  "spec": {
+    "identity": {
+      "repo": "codex-claude-history-viewer",
+      "capability": "local-history-search",
+      "contract": "search-recall-and-location-v1",
+      "error_class": "search-result-navigation-and-recovery",
+      "subject": "workspace search → /history reader deep link"
+    },
+    "repository_ref": "qiaoqiao2521/Codex-Claude-History-Viewer",
+    "workflow": "browser",
+    "question": "用户在浏览器里搜索→看摘录→点原文→返回→换源/换词，产物是否正确；来源故障与索引修订变化时是否明确提示并能恢复",
+    "reopen_when": "搜索 SQL/摘录实现或其契约版本变化",
+    "contract": {
+      "reference": "plans/search-hardening/oracle.md（九不变量+手工预期表）；plans/large-session-search/task_plan.md Acceptance",
+      "version": "oracle.md@2026-09-06（HEAD 8969e4e + 未提交 reuse/sources 修复）",
+      "expectation": "I1 同源同会话定位；I2 2M/8192 裁剪不漏检；I3 词法按契约；I4 过滤不改绝对索引；I5 旧缓存只读；I6 失败/部分/空/零命中不同状态；I7 修订变化显式失败；I8 乱序不覆盖；I9 入口差异须有依据"
+    },
+    "scope": {
+      "root": "/home/muqiao/桌面/Codex-Claude-History-Viewer",
+      "paths": [
+        "history_core/reuse.py",
+        "history_core/sources.py",
+        "tests/test_large_session_search.py",
+        "tests/test_large_search_snippets.py",
+        "tests/test_reuse_contract.py",
+        "plans/search-hardening/oracle.md"
+      ]
+    },
+    "budget": {
+      "attempts": 3,
+      "corrections": 1,
+      "stability": 0
+    },
+    "quality_dimensions": {
+      "correctness": "covered",
+      "data_integrity": "covered",
+      "privacy_permissions": "covered",
+      "compatibility": "covered",
+      "performance": "not_covered",
+      "accessibility": "not_applicable"
+    },
+    "baseline_notes": "python3 -m unittest discover -s tests → 437 tests OK(1 skip)；9 套 JS 通过；基线无已知失败。隔离副本须含未提交修复（复制工作树，非 HEAD worktree）。",
+    "fault_injection": true,
+    "persistence": "none"
+  },
+  "created_at": "2026-09-26T14:59:57.501783+00:00",
+  "attempts": [
+    {
+      "number": 1,
+      "started_at": "2026-09-26T15:19:49.010003+00:00",
+      "kind": "exploration",
+      "execution": "completed",
+      "fingerprint": "8e8cc9f864c1571a163d6a647cfd671304963e799825a3195a413e171b18a3f7",
+      "baseline": {
+        "head": "8969e4efbecb60544f1f02841ecfaae2f0bb7efa",
+        "files": {
+          "history_core/reuse.py": "46b670192a8ec2a96022e12ad2ff6c5e83e8c4a951d42bc3d4bfaa1ac616b064",
+          "history_core/sources.py": "2b70be52a2cd45f398cc579e70577655ab9322ccff819e261f72ba0fc82a81a7",
+          "tests/test_large_session_search.py": "85144ab6601df27f53d514e064dc94e8148bfc757b939a13fb015b70ff5db222",
+          "tests/test_large_search_snippets.py": "3adc91b8e20b52ba541d58bc8dfac4422ef4f1a453611040de718bd6650b9e89",
+          "tests/test_reuse_contract.py": "1ba97e26e0eb4af4044a22fb52c6a9604df5d16e804a4fbf77ea5fc4f14be48e",
+          "plans/search-hardening/oracle.md": "854c9e27ad1b971665668b2e3627f42d623c5d97e02cf75a0e789568fbbc2bd9"
+        },
+        "dirty": "M history_core/reuse.py\n M history_core/sources.py\n M tests/test_reuse_contract.py\n?? plans/search-hardening/oracle.md\n?? tests/test_large_search_snippets.py\n?? tests/test_large_session_search.py"
+      },
+      "coverage": {
+        "inputs": "/tmp/cchv-hardening/home 合成 fixture v2（build_fixture.py+fixture_v2.py，预期见 oracle.md）",
+        "fault": "来源目录 chmod 000（来源失败）；/history 带篡改 source_revision（修订提示）",
+        "entrypoint": "浏览器 UI（workspace 检索页 / /history 阅读页）+ /api/reuse/* 实际接口交叉核对",
+        "oracle": "plans/search-hardening/oracle.md 手工预期表（B1 正常链路、B2 故障命中+恢复、B3 修订提示）"
+      },
+      "environment": {
+        "runtime": "Chromium（受管 headless cdp）+ python3 3.12.3",
+        "command": "HOME=/tmp/cchv-hardening/home python3 app.py --data-dir /tmp/cchv-hardening/webcache --port 8799（隔离端口，避开 8787/8895）"
+      },
+      "reason": "首次登记：合成来源上的检索→摘录→原文→返回→换源/换词闭环，以及来源故障与修订提示的恢复",
+      "sample": null,
+      "contract": {
+        "reference": "plans/search-hardening/oracle.md（九不变量+手工预期表）；plans/large-session-search/task_plan.md Acceptance",
+        "version": "oracle.md@2026-09-06（HEAD 8969e4e + 未提交 reuse/sources 修复）",
+        "expectation": "I1 同源同会话定位；I2 2M/8192 裁剪不漏检；I3 词法按契约；I4 过滤不改绝对索引；I5 旧缓存只读；I6 失败/部分/空/零命中不同状态；I7 修订变化显式失败；I8 乱序不覆盖；I9 入口差异须有依据"
+      },
+      "result": {
+        "conclusion": "pass",
+        "observation": "B1 正常闭环 pass：搜索双千兆→摘录与 /api/reuse/search 一致（message=4，ctx 排除）→深链阅读页显示『检索：双千兆 · 已定位消息 4』且消息4正文可见→返回→换词 tailneedle 命中 message=3。B2 来源故障 pass（fault_hit：health=codex not_found；搜索降级返回 claude 结果且 errors+partial=true，codex 独有词为带披露的空而非干净零命中；recovery：恢复目录+显式刷新后 ready 且结果回归，partial=false）。B3 修订提示 pass：全零 source_revision 深链显示『索引已变化…』且不渲染过期正文。自动化备注：结果列表周期重渲染令 Playwright 点击超时，跳转经快照证实的 href 完成；WAL 外部写锁在 HTTP 层不可达（弹性设计）。B2 首次注入因 pkill 自匹配中止判 invalid 并重做。未改任何产品文件。",
+        "decision": "通过；无产品改动。两条契约缺口（非ASCII大小写折叠、跨消息摘录排序）与锁等待测量转入 findings 报告",
+        "regression": "no_new_regression",
+        "artifacts": {
+          "report": {
+            "path": "evidence/browser-report.md",
+            "sha256": "0edf78808a9b63ce24d6d30157a156dc41b35d1dcc52c5b22d4a2329508560d1"
+          }
+        },
+        "proof": {
+          "target_operation": [
+            "report"
+          ],
+          "oracle": [
+            "report"
+          ],
+          "fault_hit": [
+            "report"
+          ],
+          "recovery": [
+            "report"
+          ]
+        },
+        "tokens": null,
+        "seconds": null
+      },
+      "finished_at": "2026-09-26T16:09:08.348667+00:00"
+    }
+  ],
+  "budget_extensions": [],
+  "spec_revisions": []
+}

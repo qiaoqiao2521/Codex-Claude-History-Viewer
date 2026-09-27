@@ -1,0 +1,8 @@
+{
+  "command": [
+    "/usr/bin/python3",
+    "/tmp/hv-verify-oracle-wwrkfra4/verification/archived/clusters2.py"
+  ],
+  "cwd": "/tmp/hv-verify-oracle-wwrkfra4/verification",
+  "exit_code": 0
+}

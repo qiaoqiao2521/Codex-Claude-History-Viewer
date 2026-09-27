@@ -1,0 +1,10 @@
+{
+  "history_core/reuse.py": "46b670192a8ec2a96022e12ad2ff6c5e83e8c4a951d42bc3d4bfaa1ac616b064",
+  "history_core/sources.py": "2b70be52a2cd45f398cc579e70577655ab9322ccff819e261f72ba0fc82a81a7",
+  "history_core/providers.py": "4048084ca08d17d9767b77c1b1471645eaed176f5ca5181ac26e209cef924c72",
+  "plans/search-hardening/evidence/build_fixture.py": "bc59623a4a6de3f749a7759808edfe90a67ce25d74bc8886bc67304764e72c37",
+  "plans/search-hardening/evidence/fixture_v2.py": "ee5e752c12e4844cd9747ae234f3e8e32dc9d18743bb3a2e922096e099a3a746",
+  "plans/search-hardening/evidence/probe.py": "f74420016116b066a3123ada816a90a7f5eca6451cab5ea9d9e21a046af3ef98",
+  "plans/search-hardening/evidence/manifest.json": "078b25cf1dc9862399fbbe80797eac320c4237ace708900007807b612efd8ce5",
+  "plans/search-hardening/evidence/clusters2.py": "1513b2866a223df9baecf08f736660102f0933dafb7b65c068c754614dfb69e4"
+}

@@ -1,0 +1,8 @@
+test_raw_fallback_is_searchable_but_harness_context_stays_excluded (test_large_session_search.LargeSessionSearchTests.test_raw_fallback_is_searchable_but_harness_context_stays_excluded) ... ok
+test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts (test_large_search_snippets.LargeSearchSnippetTests.test_phrase_is_preferred_and_response_has_at_most_three_bounded_excerpts) ... ok
+test_query_failure_cannot_issue_or_consume_mixed_source_cursor (test_reuse_contract.ReuseContractTests.test_query_failure_cannot_issue_or_consume_mixed_source_cursor) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.056s
+
+OK

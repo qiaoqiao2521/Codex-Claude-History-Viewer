@@ -1,0 +1,21 @@
+FAIL duplicate_ids_distinct_stores AssertionError partial: got=True expected=False
+FAIL two_million_tail AssertionError partial: got=True expected=False
+FAIL chinese_two_million_tail AssertionError partial: got=True expected=False
+FAIL 8192_tail AssertionError partial: got=True expected=False
+FAIL chinese_after_context AssertionError partial: got=True expected=False
+FAIL context_excluded AssertionError partial: got=True expected=False
+FAIL literal_underscore AssertionError partial: got=True expected=False
+FAIL literal_percent AssertionError partial: got=True expected=False
+FAIL literal_backslash AssertionError partial: got=True expected=False
+FAIL ascii_fold AssertionError partial: got=True expected=False
+FAIL G1_non_ascii_upper AssertionError partial: got=True expected=False
+FAIL G1_non_ascii_exact AssertionError partial: got=True expected=False
+FAIL metadata_only AssertionError partial: got=True expected=False
+FAIL cross_message_AND AssertionError partial: got=True expected=False
+FAIL G2_early_any_term_order AssertionError partial: got=True expected=False
+FAIL clean_no_match AssertionError partial: got=True expected=False
+FAIL source_query_error AssertionError partial: got=False expected=True
+FAIL snippet_query_error AssertionError partial: got=False expected=True
+FAIL pagination_25 AssertionError partial: got=True expected=False
+PASS source_jsonl_unchanged cache_bytes_revision_parser_versions_unchanged no_query_scan_or_write
+{"cases": 19, "passed": 0, "failed": ["duplicate_ids_distinct_stores", "two_million_tail", "chinese_two_million_tail", "8192_tail", "chinese_after_context", "context_excluded", "literal_underscore", "literal_percent", "literal_backslash", "ascii_fold", "G1_non_ascii_upper", "G1_non_ascii_exact", "metadata_only", "cross_message_AND", "G2_early_any_term_order", "clean_no_match", "source_query_error", "snippet_query_error", "pagination_25"], "corruption": "partial"}

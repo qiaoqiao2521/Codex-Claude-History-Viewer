@@ -1,0 +1,7 @@
+{
+  "correction": "Scoped DOM mirror lacks childElementCount; use supported scoped heading/link counts. Earlier failed attempts retained.",
+  "resultHeadings": 0,
+  "resultLinks": 0,
+  "message": "读取失败（index_revision_changed）。索引已变化，请重新搜索或重新选择项目，从第一页读取。已清除旧结果。",
+  "moreVisible": false
+}

@@ -1,0 +1,72 @@
+Browser tab: 4, Title: "项目与对话 · History Viewer", URL: "http://127.0.0.1:8843/?view=search&q=tailneedle".
+0 AXWebArea 项目与对话 · History Viewer, URL: 127.0.0.1:8843/?view=search&q=tailneedle
+	1 container
+		2 heading 项目与对话, Value: 1
+			3 text 项目与对话
+		4 text 选一个项目，继续阅读各个 Agent 的对话。
+		5 button 设置
+		6 text 本地历史 1.3.0-rc.3 · 1 个来源有记录
+		7 tab group 浏览历史
+			8 tab (selectable, settable, boolean) 项目, Value: 0, ID: projectsTab
+			9 tab (selected, settable, boolean) 搜索历史, Value: 1, ID: searchTab
+		10 container reuseLayout
+			11 container Description: 搜索历史, ID: searchView
+				12 container reuseSearchForm
+					13 text 记得的关键词、报错或文件名
+					14 search text field (settable) 记得的关键词、报错或文件名, Value: tailneedle, ID: reuseQuery
+					15 button 搜索
+					16 container
+						17 text 来源
+						18 pop up button (collapsed, settable) 来源, Value: 全部来源, ID: reuseSource, Secondary Actions: Expand
+							19 menu
+								20 (selected) 全部来源
+								21 AGY CLI
+								22 Antigravity
+								23 Claude Code
+								24 CodeBuddy (cbc)
+								25 Codex
+								26 GitHub Copilot
+								27 Gemini CLI
+								28 openclaw
+								29 OpenCode
+								30 pi
+								31 Prime Agent
+								32 ZCode
+								33 hermes
+					34 container
+						35 text 项目路径
+						36 text field (settable) 项目路径, ID: reuseProject
+					37 container
+						38 text 开始日期
+						39 date field (settable) 开始日期, ID: reuseStart
+							40 container
+								41 stepper
+								42 stepper
+								43 stepper
+							44 pop up button 显示日期选择器 显示日期选择器
+					45 container
+						46 text 结束日期
+						47 date field (settable) 结束日期, ID: reuseEnd
+							48 container
+								49 stepper
+								50 stepper
+								51 stepper
+							52 pop up button 显示日期选择器 显示日期选择器
+				69 text 没有匹配结果。试试更短的关键词，或清除来源、项目与日期筛选。
+				54 container searchWarnings
+					70 text 部分来源未能读取：codex（source_unavailable）。以下结果并非全部历史。
+					71 text 部分来源读取失败，本次只能查看第一页。请选择可用来源重新搜索，或修复来源后重试。
+			57 container 交接证据 0 / 5, ID: selectionPanel
+				58 heading 交接证据 0 / 5, Value: 2, ID: selectionTitle
+					59 text 交接证据 
+					60 text 0 / 5
+				61 button (disabled) 清空, ID: selectionClear
+				62 text 从会话中选择证据，核对预览后复制或下载。最多 5 条。
+				63 button (disabled) 生成交接预览, ID: selectionPreview
+				64 button (collapsed) 整理为公众号素材, Secondary Actions: Expand
+					65 text 整理为公众号素材
+		66 button (collapsed) 诊断与帮助, Secondary Actions: Expand
+			67 text 诊断与帮助
+		68 text 对话保留在本机。这里只读取历史，不会替你运行 Agent。
+
+The focused UI element is 15 button 搜索

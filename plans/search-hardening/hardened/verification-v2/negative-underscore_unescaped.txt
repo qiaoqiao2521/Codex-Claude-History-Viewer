@@ -1,0 +1,21 @@
+PASS duplicate_ids_distinct_stores
+PASS two_million_tail
+PASS chinese_two_million_tail
+PASS 8192_tail
+PASS chinese_after_context
+PASS context_excluded
+FAIL literal_underscore AssertionError item count: got=2 expected=1
+PASS literal_percent
+PASS literal_backslash
+PASS ascii_fold
+PASS G1_non_ascii_upper
+PASS G1_non_ascii_exact
+PASS metadata_only
+PASS cross_message_AND
+PASS G2_early_any_term_order
+PASS clean_no_match
+PASS source_query_error
+PASS snippet_query_error
+PASS pagination_25
+PASS source_jsonl_unchanged cache_bytes_revision_parser_versions_unchanged no_query_scan_or_write
+{"cases": 19, "passed": 18, "failed": ["literal_underscore"], "corruption": "underscore_unescaped"}

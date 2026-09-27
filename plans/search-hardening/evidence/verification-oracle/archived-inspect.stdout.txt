@@ -1,0 +1,28 @@
+{
+  "invalid_timestamp_count": 1011,
+  "first_invalid": [
+    {
+      "line": 1098,
+      "timestamp": "2026-09-06T10:60:00Z"
+    }
+  ],
+  "last_invalid": [
+    {
+      "line": 2108,
+      "timestamp": "2026-09-06T10:77:00Z"
+    }
+  ],
+  "actual_phrase_rows": [
+    {
+      "rn": 1010,
+      "ts_ms": 1788691300000
+    }
+  ],
+  "snippet_indexes": [
+    1010,
+    1012,
+    1013
+  ],
+  "snippet_contains_phrase": true,
+  "hardcoded_2106_check_reports_excluded": true
+}

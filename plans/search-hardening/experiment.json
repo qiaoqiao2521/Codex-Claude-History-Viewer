@@ -1,0 +1,117 @@
+{
+  "schema_version": "capmesh.experiment.v1",
+  "id": "exp-29b202832208176d042b3c94",
+  "spec": {
+    "identity": {
+      "repo": "codex-claude-history-viewer",
+      "capability": "local-history-search",
+      "contract": "search-recall-and-location-v1",
+      "error_class": "recall-truncation-and-error-swallowing",
+      "subject": "history_core/reuse.py search+snippets, history_core/sources.py session match"
+    },
+    "repository_ref": "qiaoqiao2521/Codex-Claude-History-Viewer",
+    "workflow": "mutation",
+    "question": "用户搜索本地历史时，检查能否抓住召回截断、预裁剪与错误吞没三类违反：命中须指向同一来源同一修订的正确消息，失败须显式而非误导性空结果",
+    "reopen_when": "搜索 SQL/摘录实现或其契约版本变化",
+    "contract": {
+      "reference": "plans/search-hardening/oracle.md（九不变量+手工预期表）；plans/large-session-search/task_plan.md Acceptance",
+      "version": "oracle.md@2026-09-06（HEAD 8969e4e + 未提交 reuse/sources 修复）",
+      "expectation": "I1 同源同会话定位；I2 2M/8192 裁剪不漏检；I3 词法按契约；I4 过滤不改绝对索引；I5 旧缓存只读；I6 失败/部分/空/零命中不同状态；I7 修订变化显式失败；I8 乱序不覆盖；I9 入口差异须有依据"
+    },
+    "scope": {
+      "root": "/home/muqiao/桌面/Codex-Claude-History-Viewer",
+      "paths": [
+        "history_core/reuse.py",
+        "history_core/sources.py",
+        "tests/test_large_session_search.py",
+        "tests/test_large_search_snippets.py",
+        "tests/test_reuse_contract.py",
+        "plans/search-hardening/oracle.md"
+      ]
+    },
+    "budget": {
+      "attempts": 3,
+      "corrections": 1,
+      "stability": 0
+    },
+    "quality_dimensions": {
+      "correctness": "covered",
+      "data_integrity": "covered",
+      "privacy_permissions": "covered",
+      "compatibility": "covered",
+      "performance": "not_covered",
+      "accessibility": "not_applicable"
+    },
+    "baseline_notes": "python3 -m unittest discover -s tests → 437 tests OK(1 skip)；9 套 JS 通过；基线无已知失败。隔离副本须含未提交修复（复制工作树，非 HEAD worktree）。"
+  },
+  "created_at": "2026-09-26T14:59:46.250153+00:00",
+  "attempts": [
+    {
+      "number": 1,
+      "started_at": "2026-09-26T15:03:17.271458+00:00",
+      "kind": "exploration",
+      "execution": "completed",
+      "fingerprint": "ee09ee4e32360bfc3a173de14a0f6db55ad719172afb2d29b29b3fb52ab592dc",
+      "baseline": {
+        "head": "8969e4efbecb60544f1f02841ecfaae2f0bb7efa",
+        "files": {
+          "history_core/reuse.py": "46b670192a8ec2a96022e12ad2ff6c5e83e8c4a951d42bc3d4bfaa1ac616b064",
+          "history_core/sources.py": "2b70be52a2cd45f398cc579e70577655ab9322ccff819e261f72ba0fc82a81a7",
+          "tests/test_large_session_search.py": "85144ab6601df27f53d514e064dc94e8148bfc757b939a13fb015b70ff5db222",
+          "tests/test_large_search_snippets.py": "3adc91b8e20b52ba541d58bc8dfac4422ef4f1a453611040de718bd6650b9e89",
+          "tests/test_reuse_contract.py": "1ba97e26e0eb4af4044a22fb52c6a9604df5d16e804a4fbf77ea5fc4f14be48e",
+          "plans/search-hardening/oracle.md": "854c9e27ad1b971665668b2e3627f42d623c5d97e02cf75a0e789568fbbc2bd9"
+        },
+        "dirty": "M history_core/reuse.py\n M history_core/sources.py\n M tests/test_reuse_contract.py\n?? plans/search-hardening/oracle.md\n?? tests/test_large_search_snippets.py\n?? tests/test_large_session_search.py"
+      },
+      "coverage": {
+        "inputs": "/tmp/cchv-hardening/home 合成 fixture（manifest 见 oracle.md；fixture 脚本 build_fixture.py）",
+        "fault": "M1 会话匹配退回仅 blob；M2 摘录先 8192 截断再匹配；M3 查询异常吞成空结果",
+        "entrypoint": "python3 -m unittest（测试文件级）+ 直接调用 history_core.reuse.search 对 fixture 探针",
+        "oracle": "plans/search-hardening/oracle.md 手工预期表 + /tmp/cchv-hardening/manifest.json"
+      },
+      "environment": {
+        "runtime": "python3 3.12.3 / Linux 6.8.0-139-generic",
+        "command": "隔离副本 /tmp/cchv-hardening/mutant（rsync 工作树，含未提交 reuse/sources 修复，排除 .git/缓存/真实数据）；python3 -m unittest discover -s tests"
+      },
+      "reason": "首次登记：对未提交检索修复做注入验证，覆盖会话匹配召回、摘录预裁剪、错误吞没三类机制",
+      "sample": null,
+      "contract": {
+        "reference": "plans/search-hardening/oracle.md（九不变量+手工预期表）；plans/large-session-search/task_plan.md Acceptance",
+        "version": "oracle.md@2026-09-06（HEAD 8969e4e + 未提交 reuse/sources 修复）",
+        "expectation": "I1 同源同会话定位；I2 2M/8192 裁剪不漏检；I3 词法按契约；I4 过滤不改绝对索引；I5 旧缓存只读；I6 失败/部分/空/零命中不同状态；I7 修订变化显式失败；I8 乱序不覆盖；I9 入口差异须有依据"
+      },
+      "result": {
+        "conclusion": "detected",
+        "observation": "三个单点变体全部 detected。M1（body EXISTS 死连接→仅 blob）: reached=fixture 7 例静默漏检（无 errors，误导性空结果），responsible=tests/test_large_session_search+test_large_search_snippets（16 failures+5 errors），violates I2/I6。M2（摘录先 substr(1,8192) 再匹配）: reached=q=tailneedle 会话命中但消息摘录消失（静默），responsible=test_large_search_snippets 4 failures，violates I2。M3（候选查询异常吞成 pass）: reached=预算饥饿时 items=0/errors=[]/partial=false 与干净零命中不可区分，responsible=test_reuse_contract::test_query_failure_cannot_issue_or_consume_mixed_source_cursor FAILED，violates I6。首次 M1 植入因破坏 LIKE 占位符数量产生响亮 SQL 错误，判 invalid 并以绑定等价的死连接重做（占用 1 次 attempt，共 3/3）。每次植入后恢复原件并复跑：29/29 与全量 437(436+1skip) 通过、探针 11/11 PASS。注入缺陷均为人工构造，不代表产品存在同类缺陷。",
+        "decision": "无需产品改动；新增独立探针 /tmp/cchv-hardening/probe.py 与 fixture/manifest 可作为回归补充素材（本轮不改产品测试）",
+        "regression": "unverified",
+        "artifacts": {
+          "report": {
+            "path": "evidence/mutation-report.md",
+            "sha256": "ae586a0dcfe01aab7cde27de612dd50eaee8f773046b7f5abad35fc4bea9aadf"
+          }
+        },
+        "proof": {
+          "planted": [
+            "report"
+          ],
+          "reached": [
+            "report"
+          ],
+          "responsible_check": [
+            "report"
+          ],
+          "contract_violation": [
+            "report"
+          ]
+        },
+        "tokens": null,
+        "seconds": null
+      },
+      "finished_at": "2026-09-26T15:19:06.565647+00:00"
+    }
+  ],
+  "budget_extensions": [],
+  "spec_revisions": []
+}
