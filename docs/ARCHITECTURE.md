@@ -203,3 +203,9 @@ Validation and source capability matrix: [reuse findings](../plans/history-reuse
 `static/settings.js` synchronously creates one native dialog shared by both pages and owns its preference controls. It reuses existing theme/role storage keys, adds local reader preferences for text size, tool collapse and initial audit expansion, and notifies the reader through `hv-preferences-change`. Legacy listeners skip settings-owned controls. Source cards show configured paths and refresh existing derived indexes; changing source roots remains a launch-argument operation. The reader updates URL/history and selection identity across project, provider and insight links; stale responses cannot replace a newer navigation.
 
 当前文件索引的大小写、字面匹配与前三条摘录顺序见 [检索词法与摘录边界](search-semantics.md)；Unicode 大小写和跨消息短语排序不超出该声明。
+
+## Conversation reading aids
+
+`related_sessions.py` annotates the bounded conversation candidate set before pagination. Only identical nonempty project paths and informative normalized titles qualify; groups preserve every original source/store/session identity and indicate possible relatedness, not task equivalence. Group counts describe the bounded candidate set and inherit its partial disclosure.
+
+`GET /api/reuse/key-messages` uses `conversation_navigation.py` over the existing message index. Full text is matched before cutting 240-character excerpts; absolute message numbering precedes context/tool-input exclusion. Up to 80 wording hints plus the first request and last ordinary assistant reply are returned, with explicit truncation/coverage limits. Source revision is required and checked before/after reading; native adapters without a compatible message index report unsupported. Hints are navigation, not verification of successful delivery. Reader deep links expand and rerender target tool results before scrolling.

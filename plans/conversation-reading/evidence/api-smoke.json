@@ -1,0 +1,132 @@
+{
+  "sessions": {
+    "items": [
+      {
+        "system": "linux",
+        "source": "codex",
+        "store_id": "1899e93532912521153a3157fa6ebfb3d85979b8fdbddbdb6f7125936a54fe30",
+        "content_status": null,
+        "id": "shared-session",
+        "title": "修复登录刷新失败",
+        "project": "/synthetic/login",
+        "updated_at": 1790468207000,
+        "score": 0,
+        "source_revision": "4cf402b6d3106d5992abfcd1aa317f6b33c65b01019b2073ab04e7bdbe8a769b",
+        "related_group": {
+          "id": "related-a4b8bc50c3602cf95e367c32",
+          "label": "修复登录刷新失败",
+          "reason": "同一项目中的标题相同（规范化后）；这是相关线索，不代表同一任务",
+          "total": 2
+        }
+      },
+      {
+        "system": "linux",
+        "source": "claude",
+        "store_id": "ad507495bf1fdad4c009080e82da5d38938e6e02a881e2ec699dc59c4d5c98e1",
+        "content_status": null,
+        "id": "shared-session",
+        "title": "修复登录刷新失败",
+        "project": "/synthetic/login",
+        "updated_at": 1790467701000,
+        "score": 0,
+        "source_revision": "ed0ab0676f7eddb0fa6fb56baa19dcd6d268cd78bb3b0b3cf8739a6cb3991e7c",
+        "related_group": {
+          "id": "related-a4b8bc50c3602cf95e367c32",
+          "label": "修复登录刷新失败",
+          "reason": "同一项目中的标题相同（规范化后）；这是相关线索，不代表同一任务",
+          "total": 2
+        }
+      },
+      {
+        "system": "linux",
+        "source": "codex",
+        "store_id": "1899e93532912521153a3157fa6ebfb3d85979b8fdbddbdb6f7125936a54fe30",
+        "content_status": null,
+        "id": "unrelated",
+        "title": "检查图片缓存大小",
+        "project": "/synthetic/login",
+        "updated_at": 1790467302000,
+        "score": 0,
+        "source_revision": "4cf402b6d3106d5992abfcd1aa317f6b33c65b01019b2073ab04e7bdbe8a769b"
+      }
+    ],
+    "next_cursor": null,
+    "revision": "16d5a91c5e5347dcb8a7ffefe3173e73d265759353a2da515856e5a757a0c01b",
+    "pagination_status": "available",
+    "errors": [],
+    "partial": false,
+    "truncated": false,
+    "freshness": "unknown",
+    "candidate_limit_per_source": 500,
+    "observed_at": "2026-09-27T06:50:05.963356+00:00",
+    "project": "/synthetic/login",
+    "source": null,
+    "has_more": false
+  },
+  "markers": {
+    "system": "linux",
+    "source": "codex",
+    "store_id": "1899e93532912521153a3157fa6ebfb3d85979b8fdbddbdb6f7125936a54fe30",
+    "id": "shared-session",
+    "source_revision": "4cf402b6d3106d5992abfcd1aa317f6b33c65b01019b2073ab04e7bdbe8a769b",
+    "status": "available",
+    "items": [
+      {
+        "message_index": 1,
+        "role": "user",
+        "text": "修复登录刷新失败",
+        "kinds": [
+          "request"
+        ],
+        "truncated": false
+      },
+      {
+        "message_index": 2,
+        "role": "assistant",
+        "text": "决定采用显式刷新，保留旧失败记录。",
+        "kinds": [
+          "decision"
+        ],
+        "truncated": false
+      },
+      {
+        "message_index": 4,
+        "role": "tool",
+        "text": "Tool result: shell\nCall ID: synthetic-call\nOutput:\n````\nError: LoginExpired — tests failed（合成旧失败）\n````",
+        "kinds": [
+          "failure",
+          "verification"
+        ],
+        "truncated": false
+      },
+      {
+        "message_index": 5,
+        "role": "assistant",
+        "text": "验证结果：pytest tests passed（合成复测陈述，不代表当前版本）。",
+        "kinds": [
+          "verification"
+        ],
+        "truncated": false
+      },
+      {
+        "message_index": 6,
+        "role": "assistant",
+        "text": "最后回复：请用户检查真实登录环境，仍待人工确认。",
+        "kinds": [
+          "last_response"
+        ],
+        "truncated": false
+      }
+    ],
+    "total_messages": 7,
+    "indexed_messages": 7,
+    "partial": false,
+    "truncated": false,
+    "interpretation": "wording_hints_only",
+    "limits": {
+      "max_marker_messages": 80,
+      "max_anchor_messages": 2,
+      "max_excerpt_chars": 240
+    }
+  }
+}

@@ -1948,3 +1948,17 @@ mark.active {
 @media (prefers-reduced-motion: reduce) {
   .reader-page *, .settings-dialog * { scroll-behavior: auto; transition: none; }
 }
+.reader-group-toolbar { padding: 0 12px 8px; }
+.reader-group-toolbar button[aria-pressed="true"] { border-color: var(--accent); background: var(--surface-selected); }
+.related-session-group { border-bottom: 1px solid var(--border); min-width: 0; }
+.related-session-group > summary { cursor: pointer; padding: 10px 12px; color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+.related-session-group > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.related-session-reason { padding: 0 12px; margin: 0 0 8px; font-size: 12px; overflow-wrap: anywhere; }
+.reader-heading-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.key-messages-panel { flex: 0 0 auto; margin: 8px 14px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle); max-height: 28dvh; overflow: auto; }
+.key-messages-panel > p { margin: 4px 0 8px; }
+.key-messages-list { list-style: none; padding: 0; margin: 0; }
+.key-messages-list li { padding: 8px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.key-messages-list a { color: var(--accent); }
+.key-messages-list a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.key-messages-list p { margin: 4px 0 0; color: var(--muted); white-space: pre-wrap; }

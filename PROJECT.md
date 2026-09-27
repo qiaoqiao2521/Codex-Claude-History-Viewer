@@ -1,4 +1,4 @@
-# Project
+# AgentTraceMesh — Project
 
 ## Why
 
@@ -41,6 +41,8 @@ The stable `v1.2.0` Linux release delivers the public read-only reader, revision
 Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56ea16daa2138c6c`; the published archive, local launcher and actual test process identities were verified on 2026-09-15. The process is now stopped; this dated observation is not continuous runtime monitoring. See [release evidence](plans/bounded-delivery/progress.md). Windows/WSL and live model/CM execution are outside this release acceptance. The historical M3 independent-user trial remains unfinished and is not counted as passed.
 
 ## Current Priority
+
+2026-09-27 [相关会话归组与关键消息导航](plans/conversation-reading/task_plan.md)：专注 Agent 对话阅读，相关性仅作可解释线索，全部原会话/原文保留，关键节点绑定来源修订。源码及隔离浏览器验收完成；2026-09-28 随本提交归档，状态为“暂存待 U1”，不发 rc.4、不替换现有安装。产品展示名定为 AgentTraceMesh（原 Codex & Claude History Viewer），技术兼容标识保留；不引入采样检索或第三方聚类运行时。
 
 用户本人验收后要求产品化：默认选项目直接看对话，去掉阅读页重复全局搜索和拥挤来源标签，增加统一设置。[project-reader-ux](plans/project-reader-ux/task_plan.md) 已完成；候选 1.3.0-rc.3（源码 c47bbc8）已离线验包、安装并在本机8787运行供用户继续验收，保留证据与修订校验。候选交付事实以该计划 progress 为准，U1 不变。
 

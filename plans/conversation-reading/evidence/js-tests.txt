@@ -1,0 +1,44 @@
+tests/test_audit_ai_panel.js: exit 0
+
+18/18 tests passed (0 failed)
+
+tests/test_audit_panel.js: exit 0
+
+tests/test_insight_panels.js: exit 0
+ok - testHistoryTargetKeepsQueryAndNavigatesExactMessage
+ok - testUsageHtmlEmptyState
+ok - testUsageHtmlRendersChipsBarsAndTopSessions
+ok - testUsagePanelRenderSetsSummaryAndContent
+ok - testBriefingHtmlEmptyState
+ok - testBriefingHtmlRendersSections
+ok - testBriefingHtmlShowsTruncationNotice
+ok - testPlanListHtmlEmptyAndPopulated
+ok - testHandoffHtmlDocRendersMarkdownAndTheme
+ok - testSetHandoffThemeSwitchesClassAndPersists
+ok - testRenderHandoffPreviewUsesCurrentHandoff
+ok - testHandoffFilenameSanitizesSessionId
+ok - testAuditFetchRefreshesVisibleHandoffPreview
+ok - testAudit404ClearsHandoffPreview
+ok - testOutOfOrderAuditResponseKeepsLatestSession
+ok - testSessionChangeReloadsVisiblePlansPanel
+ok - testNarrativeClearedWhenBriefingMovesToAnotherDate
+ok - testNarrativeDroppedWhenDateMovedMidFlight
+
+tests/test_markdown_cache.js: exit 0
+
+tests/test_native_resume.js: exit 0
+Native resume commands: passed
+
+tests/test_reader_navigation.js: exit 0
+Project reader navigation: 14 scenarios passed
+Conversation reading aids: grouping, identities, links, disclosure and races passed
+
+tests/test_settings.js: exit 0
+Settings: persisted preferences, reader integration, focus, storage failure, stale responses, and refresh contracts passed
+
+tests/test_tool_collapse.js: exit 0
+
+18/18 passed
+
+tests/test_workspace.js: exit 0
+workspace: unified retrieval, safe snippets/deep links, project/file timeline, revision-bound selections, preview/export, diagnosis, keyboard and response races passed

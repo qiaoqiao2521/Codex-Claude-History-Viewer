@@ -21,6 +21,16 @@ const conversationFindEl = document.getElementById("conversationFind");
 const toggleConversationFindBtn = document.getElementById("toggleConversationFind");
 const sessionDetailsEl = document.getElementById("sessionDetails");
 const sessionReviewEl = document.getElementById("sessionReview");
+const readerGroupRelatedBtn = document.getElementById("readerGroupRelated");
+const toggleKeyMessagesBtn = document.getElementById("toggleKeyMessages");
+const keyMessagesPanelEl = document.getElementById("keyMessagesPanel");
+const keyMessagesStatusEl = document.getElementById("keyMessagesStatus");
+const keyMessagesListEl = document.getElementById("keyMessagesList");
+let readerGroupRelated = true;
+const readerGroupOpen = new Map();
+let currentStoreId = "";
+let keyMessagesOpen = false;
+let keyMessagesSequence = 0;
 // Keep the old single-source helpers usable by existing integrations and tests.
 const readerNavigationActive = readerProjectEl?.tagName === "SELECT";
 let readerProjects = [];
@@ -1584,7 +1594,9 @@ function updateListFooter() {
   listFooterEl.style.display = currentListHasMore || currentListLoadingMore ? "flex" : "none";
   listLoadMoreBtn.style.display = currentListHasMore || currentListLoadingMore ? "inline-flex" : "none";
   listLoadMoreBtn.disabled = currentListLoadingMore;
-  listLoadMoreBtn.textContent = currentListLoadingMore ? "Loading..." : "Load more";
+  listLoadMoreBtn.textContent = readerNavigationActive
+    ? (currentListLoadingMore ? "正在加载…" : "更多对话")
+    : (currentListLoadingMore ? "Loading..." : "Load more");
 }
 
 function renderSessions(sessions) {
@@ -1592,7 +1604,7 @@ function renderSessions(sessions) {
   const pinned = sorted.filter((session) => !!session.pinned);
   const unpinned = sorted.filter((session) => !session.pinned);
   sessionListEl.innerHTML = "";
-  const appendSessionItem = (session) => {
+  const appendSessionItem = (session, parent = sessionListEl) => {
     const item = document.createElement("div");
     item.className = "session-item";
     item.setAttribute("role", "button");
@@ -1603,6 +1615,7 @@ function renderSessions(sessions) {
       item.dataset.system = session.system;
       item.dataset.source = session.source;
       item.dataset.sourceRevision = session.source_revision || "";
+      item.dataset.storeId = session.store_id || "";
     }
     item.dataset.sessionId = session.id;
     const pinIcon = session.pinned ? '<span class="pin-icon">\u{1F4CC}</span>' : '';
@@ -1611,15 +1624,49 @@ function renderSessions(sessions) {
       <div class="session-meta">${escapeHtml(readerNavigationActive ? readerSessionMeta(session) : formatSessionMeta(session))}</div>
       ${readerNavigationActive ? "" : renderSessionBadges(session)}
     `;
-    sessionListEl.appendChild(item);
+    parent.appendChild(item);
   };
+
+  if (readerNavigationActive && readerGroupRelated) {
+    const groups = new Map();
+    for (const session of sorted) {
+      const group = session.related_group;
+      if (group?.id && group.total > 1) {
+        if (!groups.has(group.id)) groups.set(group.id, []);
+        groups.get(group.id).push(session);
+      }
+    }
+    const rendered = new Set();
+    for (const session of sorted) {
+      const group = session.related_group;
+      const members = group?.id ? groups.get(group.id) : null;
+      if (!members) { appendSessionItem(session); continue; }
+      if (rendered.has(group.id)) continue;
+      rendered.add(group.id);
+      const details = document.createElement("details");
+      details.className = "related-session-group";
+      details.dataset.groupId = group.id;
+      details.open = members.some(row => readerSessionKey(row) === readerActiveKey) || readerGroupOpen.get(group.id) === true;
+      const summary = document.createElement("summary");
+      summary.textContent = `${group.label || session.title} · 疑似相关 ${members.length} / ${group.total}`;
+      const reason = document.createElement("p");
+      reason.className = "related-session-reason muted";
+      reason.textContent = `${group.reason || "标题线索相近，仅供查阅，不认定为同一任务"}。${members.length < group.total ? "其余成员随“更多对话”加载。" : ""}`;
+      details.appendChild(summary);
+      details.appendChild(reason);
+      members.forEach(row => appendSessionItem(row, details));
+      details.addEventListener("toggle", () => readerGroupOpen.set(group.id, details.open));
+      sessionListEl.appendChild(details);
+    }
+    return;
+  }
 
   if (pinned.length > 0) {
     const divider = document.createElement("div");
     divider.className = "date-divider pinned-divider";
     divider.textContent = "Pinned";
     sessionListEl.appendChild(divider);
-    pinned.forEach(appendSessionItem);
+    pinned.forEach(session => appendSessionItem(session));
   }
 
   let lastDate = "";
@@ -2326,6 +2373,8 @@ function setActiveMarkIndex(index, { scroll }) {
 }
 
 function resetSessionPane() {
+  resetKeyMessages();
+  currentStoreId = "";
   cancelPendingMessageRender();
   sessionSearchFetchSeq += 1;
   currentSessionSearch = createEmptySessionSearchState();
@@ -3277,6 +3326,11 @@ async function ensureMessageLoaded(messageIndex) {
 async function scrollToMessage(messageIndex) {
   if (!Number.isInteger(messageIndex)) return false;
   if (!(await ensureMessageLoaded(messageIndex))) return false;
+  if (isToolMessage(currentMessages.find(msg => msg.message_index === messageIndex)) && isToolMessageCollapsed(messageIndex)) {
+    expandToolMessage(messageIndex);
+    // Expansion changes render state; rebuild before locating the visible body.
+    renderMessages(currentMessages);
+  }
   const el = findMessageElByIndex(messageIndex);
   if (!el) return false;
   el.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -3578,6 +3632,7 @@ async function fetchSessions({ append = false } = {}) {
 }
 
 async function fetchSession(sessionId, sourceRevision = "") {
+  resetKeyMessages();
   currentSourceRevision = sourceRevision;
   currentSession = null;
   const seq = (sessionFetchSeq += 1);
@@ -3601,6 +3656,7 @@ async function fetchSession(sessionId, sourceRevision = "") {
     const data = await res.json();
     if (seq !== sessionFetchSeq) return;
     currentSession = data.session;
+    if (toggleKeyMessagesBtn) toggleKeyMessagesBtn.disabled = !currentSession;
     currentBrowseMessages = [];
     currentMessages = [];
     currentMessageTotal = Number.isFinite(currentSession?.message_total)
@@ -3825,7 +3881,7 @@ sessionListEl.addEventListener("click", (event) => {
   if (!item) return;
   if (readerNavigationActive) {
     const session = currentListItems.find(row => readerSessionKey(row) === readerSessionKey({
-      system: item.dataset.system, source: item.dataset.source, id: item.dataset.sessionId,
+      system: item.dataset.system, source: item.dataset.source, store_id: item.dataset.storeId, id: item.dataset.sessionId,
     }));
     if (session) openReaderSession(session);
     return;
@@ -4481,7 +4537,6 @@ async function applyHistoryTarget(target, navigate = scrollToMessage) {
   document.querySelectorAll(".roles input[type=checkbox]").forEach(input => { input.checked = true; });
   const located = valid ? await navigate(index) : false;
   if (`${currentSystem}:${currentSource}:${currentSession?.id}:${sessionFetchSeq}` !== owner) return false;
-  if (located && isToolMessage(currentMessages.find(msg => msg.message_index === index))) expandToolMessage(index);
   if (notice) {
     notice.hidden = false;
     notice.textContent = `${query ? `检索：${query} · ` : ""}${located ? `已定位消息 ${index}` : "消息定位已失效，请重新搜索"}`;
@@ -4492,7 +4547,7 @@ async function applyHistoryTarget(target, navigate = scrollToMessage) {
 // Project reader navigation. Selection identity includes the provider and system;
 // provider session IDs are not globally unique.
 function readerSessionKey(row) {
-  return JSON.stringify([row?.system || currentSystem, row?.source || currentSource, row?.id || ""]);
+  return JSON.stringify([row?.system || currentSystem, row?.source || currentSource, row?.store_id || "", row?.id || ""]);
 }
 
 function readerSessionMeta(row) {
@@ -4510,6 +4565,99 @@ function readerPreferences() {
     toolsCollapsed: typeof value.toolsCollapsed === "boolean" ? value.toolsCollapsed : true,
     auditExpanded: value.auditExpanded === true,
   };
+}
+
+function setReaderGrouping(enabled) {
+  readerGroupRelated = !!enabled;
+  readerGroupRelatedBtn?.setAttribute("aria-pressed", String(readerGroupRelated));
+  renderSessions(currentListItems);
+}
+
+function resetKeyMessages() {
+  ++keyMessagesSequence;
+  keyMessagesOpen = false;
+  if (keyMessagesPanelEl) keyMessagesPanelEl.hidden = true;
+  if (keyMessagesListEl) keyMessagesListEl.innerHTML = "";
+  if (keyMessagesStatusEl) keyMessagesStatusEl.textContent = "";
+  if (toggleKeyMessagesBtn) {
+    toggleKeyMessagesBtn.disabled = true;
+    toggleKeyMessagesBtn.setAttribute("aria-expanded", "false");
+  }
+}
+
+const KEY_MESSAGE_LABELS = {
+  request: "用户请求", decision: "方案线索", failure: "提及失败",
+  verification: "提及验证", last_response: "最后回复",
+};
+
+async function fetchKeyMessages() {
+  if (!currentSession || !keyMessagesOpen) return;
+  const seq = ++keyMessagesSequence;
+  const target = {system: currentSystem, source: currentSource, id: currentSession.id,
+    store_id: currentStoreId, source_revision: currentSourceRevision};
+  const sessionSequence = sessionFetchSeq;
+  const isCurrent = () => seq === keyMessagesSequence && keyMessagesOpen && sessionSequence === sessionFetchSeq
+    && currentSession?.id === target.id && currentSystem === target.system && currentSource === target.source;
+  keyMessagesListEl.innerHTML = "";
+  if (!target.source_revision) {
+    keyMessagesStatusEl.textContent = "当前链接没有索引修订，请从会话目录重新打开后再查看关键消息。";
+    return;
+  }
+  keyMessagesStatusEl.textContent = "正在定位关键消息…";
+  const params = new URLSearchParams({system: target.system, source: target.source, session: target.id,
+    source_revision: target.source_revision});
+  if (target.store_id) params.set("store_id", target.store_id);
+  try {
+    const res = await fetch(`/api/reuse/key-messages?${params}`);
+    if (!isCurrent()) return;
+    if (!res.ok) throw new Error(res.status === 409 ? "index_revision_changed" : `HTTP ${res.status}`);
+    const data = await res.json();
+    if (!isCurrent()) return;
+    if (data.system !== target.system || data.source !== target.source || data.id !== target.id
+      || data.source_revision !== target.source_revision || (target.store_id && data.store_id !== target.store_id)) {
+      throw new Error("index_revision_changed");
+    }
+    if (data.status === "unsupported") {
+      keyMessagesStatusEl.textContent = "当前来源暂不支持关键消息导航，仍可直接阅读对话原文。";
+      return;
+    }
+    if (data.status !== "available" || !Array.isArray(data.items)) throw new Error("invalid_response");
+    for (const item of data.items) {
+      if (!Number.isSafeInteger(item.message_index) || item.message_index < 0) throw new Error("invalid_message_index");
+      const labels = (Array.isArray(item.kinds) ? item.kinds : []).map(kind => KEY_MESSAGE_LABELS[kind]).filter(Boolean);
+      const row = document.createElement("li");
+      const link = document.createElement("a");
+      const location = new URLSearchParams({system: target.system, source: target.source, session: target.id,
+        message: String(item.message_index), source_revision: target.source_revision});
+      if (data.store_id) location.set("store_id", data.store_id);
+      if (currentProject !== null) location.set("project", currentProject);
+      link.href = `/history?${location}`;
+      link.textContent = `${labels.join(" / ") || "消息线索"} · 消息 ${item.message_index}`;
+      const excerpt = document.createElement("p");
+      excerpt.textContent = item.text || "（无文本）";
+      row.appendChild(link);
+      row.appendChild(excerpt);
+      keyMessagesListEl.appendChild(row);
+    }
+    keyMessagesStatusEl.textContent = data.partial || data.truncated
+      ? `已显示 ${data.items.length} 条定位线索，尚非完整范围；请结合对话原文查阅。`
+      : data.items.length ? `${data.items.length} 条定位线索，按原文顺序排列。` : "暂未识别到关键消息，可直接阅读或查找对话内容。";
+  } catch (err) {
+    if (!isCurrent()) return;
+    keyMessagesListEl.innerHTML = "";
+    keyMessagesStatusEl.textContent = err?.message === "index_revision_changed"
+      ? "索引已变化，旧线索已清除。请从项目重新打开会话。"
+      : "关键消息读取失败，可收起后重试，或直接阅读对话原文。";
+  }
+}
+
+async function toggleKeyMessages() {
+  if (!currentSession) return;
+  keyMessagesOpen = !keyMessagesOpen;
+  keyMessagesPanelEl.hidden = !keyMessagesOpen;
+  toggleKeyMessagesBtn?.setAttribute("aria-expanded", String(keyMessagesOpen));
+  if (keyMessagesOpen) await fetchKeyMessages();
+  else ++keyMessagesSequence;
 }
 
 function applyReaderPreferences() {
@@ -4543,6 +4691,8 @@ function writeReaderLocation({ session = null, replace = false, keepTarget = fal
     params.set("session", session.id);
     if (session.source_revision) params.set("source_revision", session.source_revision);
     else if (!keepTarget) params.delete("source_revision");
+    if (session.store_id) params.set("store_id", session.store_id);
+    else if (!keepTarget) params.delete("store_id");
   }
   const query = params.toString();
   const url = `${window.location.pathname || "/history"}${query ? `?${query}` : ""}`;
@@ -4686,6 +4836,13 @@ async function fetchReaderSessions({ append = false, autoOpen = false } = {}) {
       return true;
     });
     currentListItems = (append ? currentListItems : []).concat(rows);
+    if (currentSession && !currentStoreId) {
+      const matching = currentListItems.filter(row => row.system === currentSystem && row.source === currentSource && row.id === currentSession.id);
+      if (matching.length === 1) {
+        currentStoreId = matching[0].store_id || "";
+        readerActiveKey = readerSessionKey(matching[0]);
+      }
+    }
     readerSessionsCursor = readerNextCursor(data);
     currentListHasMore = !!readerSessionsCursor;
     currentListLoadingMore = false;
@@ -4738,6 +4895,7 @@ async function openReaderSession(row, { replace = false, keepTarget = false } = 
   resetSessionPane();
   currentSystem = row.system || runtimeSystem;
   currentSource = row.source || currentSource;
+  currentStoreId = row.store_id || "";
   readerActiveKey = readerSessionKey(row);
   renderSessions(currentListItems);
   writeReaderLocation({ session: row, replace, keepTarget });
@@ -4775,7 +4933,7 @@ async function restoreReaderLocation(target = new URLSearchParams(window.locatio
   renderReaderProjects();
   renderReaderSources();
   if (target.get("session") && target.get("system") && target.get("source")) {
-    const row = { system: target.get("system"), source: target.get("source"), id: target.get("session"), source_revision: target.get("source_revision") || "" };
+    const row = { system: target.get("system"), source: target.get("source"), store_id: target.get("store_id") || "", id: target.get("session"), source_revision: target.get("source_revision") || "" };
     const loaded = await openReaderSession(row, { replace: true, keepTarget: true });
     // openReaderSession owns the next navigation revision. If selection changed
     // while fetching, nothing from this deep link may update the current view.
@@ -4793,6 +4951,8 @@ async function restoreReaderLocation(target = new URLSearchParams(window.locatio
 }
 
 if (readerNavigationActive) {
+  readerGroupRelatedBtn?.addEventListener("click", () => setReaderGrouping(!readerGroupRelated));
+  toggleKeyMessagesBtn?.addEventListener("click", toggleKeyMessages);
   readerProjectEl.addEventListener("change", () => {
     chooseReaderProject(readerProjectEl.value === "__choose_project__" ? null : readerProjectEl.value);
   });
@@ -4853,6 +5013,10 @@ if (globalThis.__CCHV_TEST__) {
     applyReaderPreferences,
     setConversationFind,
     readerSessionKey,
+    setReaderGrouping,
+    renderSessions,
+    toggleKeyMessages,
+    fetchKeyMessages,
     getReaderState() { return { project: currentProject, source: readerSourceFilter, items: currentListItems, activeKey: readerActiveKey, projects: readerProjects, cursor: readerSessionsCursor }; },
     getMessageHtml,
     buildMessageElement,

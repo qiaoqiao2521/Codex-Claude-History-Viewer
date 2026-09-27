@@ -21,6 +21,8 @@ class FakeClassList {
 }
 
 class FakeElement {
+  set innerHTML(value) { this._innerHTML = value; this.children = []; }
+  get innerHTML() { return this._innerHTML || ""; }
   constructor(tagName = "div") {
     this.tagName = String(tagName || "div").toUpperCase();
     this.children = [];
@@ -41,10 +43,16 @@ class FakeElement {
   }
   appendChild(child) {
     if (!child) return child;
+    if (child.tagName === '#FRAGMENT') {
+      [...child.children].forEach(item => this.appendChild(item));
+      child.children = [];
+      return child;
+    }
     child.parentNode = this;
     this.children.push(child);
     return child;
   }
+  replaceChildren(...children) { this.children = []; children.forEach(child => this.appendChild(child)); }
   setAttribute(name, value) {
     this.attributes.set(name, String(value));
     if (name.startsWith("data-")) {
@@ -57,10 +65,15 @@ class FakeElement {
   addEventListener(type, handler) { this.eventListeners.set(type, handler); }
   removeEventListener(type) { this.eventListeners.delete(type); }
   focus() {}
-  querySelector() { return null; }
-  querySelectorAll() { return []; }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+  querySelectorAll(selector) {
+    const match = selector.match(/^\.([\w-]+)(?:\[data-message-index="(\d+)"\])?$/);
+    if (!match) return [];
+    return descendants(this, el => ((el.className || '').split(' ').includes(match[1]) || el.classList?.contains(match[1]))
+      && (match[2] === undefined || el.dataset.messageIndex === match[2]));
+  }
   closest() { return null; }
-  scrollIntoView() {}
+  scrollIntoView() { this.scrolledIntoView = true; }
   scrollTo(value) {
     if (typeof value === "number") { this.scrollTop = value; return; }
     if (value && typeof value === "object" && Number.isFinite(value.top)) { this.scrollTop = value.top; }
@@ -145,11 +158,12 @@ function createDocument() {
   return document;
 }
 
-async function loadApp({ fetchImpl, search = "", preferences = {} } = {}) {
+async function loadApp({ fetchImpl, search = "", preferences = {}, legacy = false } = {}) {
   const repoDir = path.resolve(__dirname, "..");
   const sourcePath = path.join(repoDir, "static", "app.js");
   const localStorage = createStorage();
   const document = createDocument();
+  if (legacy) document.getElementById('readerProject').tagName = 'DIV';
   document.defaultView.location = { pathname: "/history", search };
   document.defaultView.HVSettings = { getPreferences: () => preferences };
   // renderSessionHeader needs a working querySelector on the session header.
@@ -421,4 +435,122 @@ async function run() {
   }
   console.log('Project reader navigation: 14 scenarios passed');
 }
-run().catch(err => { console.error(err); nodeProcess.exitCode = 1; });
+function descendants(element, predicate) {
+  return (element.children || []).flatMap(child => [ ...(predicate(child) ? [child] : []), ...descendants(child, predicate) ]);
+}
+
+async function runConversationAids() {
+  const first = {...row('codex', 'same'), store_id: 'codex-store', related_group: {id: 'g', label: '修复登录刷新失败', reason: '同项目且标题相同', total: 3}};
+  const second = {...row('claude', 'same'), store_id: 'claude-store', related_group: first.related_group};
+  const third = {...row('codex', 'same'), store_id: 'another-store', related_group: first.related_group};
+  let page = 0;
+  const grouped = fixture({intercept(url) {
+    if (url.pathname !== '/api/reuse/sessions') return;
+    return response({items: ++page === 1 ? [first, second] : [third], next_cursor: page === 1 ? 'next' : null, pagination_status: 'available'});
+  }});
+  let app = await loadApp(grouped);
+  await app.api.chooseReaderProject('/work/project');
+  const list = app.document.getElementById('sessionList');
+  assert.equal(list.children.length, 1, 'related rows share one expandable group');
+  assert.equal(list.children[0].open, true, 'active conversation remains visible in its group');
+  assert.match(list.children[0].children[0].textContent, /2 \/ 3/);
+  assert.equal(descendants(list, el => el.dataset.sessionId).length, 2);
+  assert.equal(grouped.calls.some(url => url.includes('key-messages')), false, 'markers do not load until requested');
+  await app.api.fetchReaderSessions({append: true});
+  assert.equal(app.api.getReaderState().items.length, 3, 'same source ID in another store is retained');
+  assert.equal(list.children.length, 1, 'append joins existing group');
+  assert.match(list.children[0].children[0].textContent, /3 \/ 3/);
+  assert.equal(new Set(descendants(list, el => el.dataset.sessionId).map(el => JSON.stringify([el.dataset.source, el.dataset.storeId, el.dataset.sessionId]))).size, 3);
+  app.api.setReaderGrouping(false);
+  assert.equal(descendants(list, el => el.tagName === 'DETAILS').length, 0);
+  assert.equal(descendants(list, el => el.dataset.sessionId).length, 3, 'ungrouping loses no sessions');
+  assert.equal(app.document.getElementById('readerGroupRelated').getAttribute('aria-pressed'), 'false');
+  app.api.renderSessions([{...first, pinned: true}, second]);
+  assert.equal(descendants(list, el => el.dataset.sessionId).length, 2, 'ungrouped pinned rows still render');
+  assert.equal(descendants(list, el => el.classList.contains('pinned')).length, 1);
+  const legacy = await loadApp({legacy: true});
+  legacy.api.renderSessions([{...first, pinned: true}, second]);
+  const legacyList = legacy.document.getElementById('sessionList');
+  assert.equal(descendants(legacyList, el => el.dataset.sessionId).length, 2, 'legacy pinned rows still render');
+  assert.equal(descendants(legacyList, el => el.classList.contains('pinned')).length, 1);
+
+  const payload = (selected, extra = {}) => ({system: selected.system, source: selected.source, store_id: selected.store_id,
+    id: selected.id, source_revision: selected.source_revision, status: 'available', total_messages: 2107,
+    partial: false, truncated: false, items: [{message_index: 2106, role: 'assistant', kinds: ['decision', 'verification'], text: '<not markup> 最后一次复测', truncated: false}], ...extra});
+  let markerResult = payload(first);
+  let resolveMarker;
+  let delayed = false;
+  const marked = fixture({sessions: [first, second], intercept(url) {
+    if (url.pathname !== '/api/reuse/key-messages') return;
+    assert.equal(url.searchParams.get('source_revision'), 'rev-codex');
+    assert.equal(url.searchParams.get('store_id'), 'codex-store');
+    if (delayed) return new Promise(resolve => {resolveMarker = resolve;});
+    return response(markerResult);
+  }});
+  app = await loadApp(marked);
+  await app.api.chooseReaderProject('/work/project');
+  await app.api.toggleKeyMessages();
+  const panel = app.document.getElementById('keyMessagesPanel');
+  const markers = app.document.getElementById('keyMessagesList');
+  const status = app.document.getElementById('keyMessagesStatus');
+  assert.equal(panel.hidden, false);
+  assert.equal(markers.children.length, 1);
+  const link = markers.children[0].children[0];
+  const url = new URL(link.href, 'http://localhost');
+  assert.equal(url.searchParams.get('message'), '2106', 'absolute index is not renumbered');
+  assert.equal(url.searchParams.get('source_revision'), 'rev-codex');
+  assert.equal(url.searchParams.get('store_id'), 'codex-store');
+  assert.match(link.textContent, /方案线索 \/ 提及验证/);
+  assert.equal(markers.children[0].children[1].textContent, '<not markup> 最后一次复测');
+  markerResult = payload(first, {partial: true, truncated: true});
+  await app.api.fetchKeyMessages();
+  assert.match(status.textContent, /尚非完整范围/);
+  markerResult = payload(first, {status: 'unsupported', items: []});
+  await app.api.fetchKeyMessages();
+  assert.match(status.textContent, /暂不支持/);
+  assert.equal(markers.children.length, 0, 'unsupported clears previous nodes');
+  markerResult = payload(first, {store_id: 'wrong-store'});
+  await app.api.fetchKeyMessages();
+  assert.match(status.textContent, /旧线索已清除/);
+  assert.equal(markers.children.length, 0);
+  delayed = true;
+  const pending = app.api.fetchKeyMessages();
+  await app.api.openReaderSession(second);
+  resolveMarker(response(payload(first)));
+  await pending;
+  assert.equal(panel.hidden, true, 'session change closes old panel');
+  assert.equal(markers.children.length, 0, 'late response cannot leak across sources with same session ID');
+  assert.equal(status.textContent, '');
+
+  app = await loadApp(fixture({sessions: [first], intercept(url) {
+    if (url.pathname === '/api/reuse/key-messages') return response({error: 'index_revision_changed'}, 409);
+  }}));
+  await app.api.chooseReaderProject('/work/project');
+  await app.api.toggleKeyMessages();
+  assert.match(app.document.getElementById('keyMessagesStatus').textContent, /索引已变化/);
+  assert.equal(app.document.getElementById('keyMessagesList').children.length, 0);
+  await app.api.openReaderSession({...first, source_revision: ''});
+  await app.api.toggleKeyMessages();
+  assert.match(app.document.getElementById('keyMessagesStatus').textContent, /没有索引修订/);
+  await app.api.chooseReaderProject(null);
+  assert.equal(app.document.getElementById('toggleKeyMessages').disabled, true);
+  assert.equal(app.document.getElementById('keyMessagesPanel').hidden, true);
+
+  const toolDeepLink = fixture({sessions: [first], intercept(url) {
+    if (url.pathname === '/api/linux/codex/session/same') return response({session: {id: 'same', cwd: '/work/project', title: 'Failure', message_total: 2}});
+    if (url.pathname.endsWith('/messages')) return response({messages: [
+      {message_index: 0, role: 'user', kind: 'message', text: 'request'},
+      {message_index: 1, role: 'tool', kind: 'tool_result', text: 'Error: LoginExpired', ts_ms: 1},
+    ], offset: 0, total: 2});
+  }});
+  app = await loadApp({...toolDeepLink, search: '?system=linux&source=codex&session=same&message=1&source_revision=rev-codex&store_id=codex-store&project=%2Fwork%2Fproject'});
+  const tool = app.document.getElementById('messages').querySelector('.msg[data-message-index="1"]');
+  assert.ok(tool, 'deep link renders its target');
+  assert.equal(tool.classList.contains('tool-expanded'), true, 'navigation must rerender the expanded tool, not only change its in-memory flag');
+  assert.equal(tool.querySelector('.msg-body').hidden, false);
+  assert.match(tool.querySelector('.msg-body').innerHTML, /LoginExpired/);
+  assert.equal(tool.scrolledIntoView, true, 'scroll uses the replacement, expanded DOM node');
+  assert.match(app.document.getElementById('historyTarget').textContent, /已定位消息 1/);
+  console.log('Conversation reading aids: grouping, identities, links, disclosure and races passed');
+}
+run().then(runConversationAids).catch(err => { console.error(err); nodeProcess.exitCode = 1; });

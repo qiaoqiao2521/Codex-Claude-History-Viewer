@@ -2,7 +2,12 @@
 
 当前执行方向以此索引和 PROJECT 为准；旧计划保存有日期的证据，不竞争当前优先级。
 
+- **已提交，暂存待 U1：相关会话归组与关键消息导航**：[计划](conversation-reading/task_plan.md) / [状态](conversation-reading/progress.md)。Agent 对话阅读为主，完整记录保留，展示名 AgentTraceMesh；不发 rc.4。
+
+- **已收口：Agent 对话记录定位与定名**：[trace-positioning](trace-positioning/task_plan.md)。比较归档；阅读功能已提交，AgentTraceMesh 定名落地。
+
 - **已完成：检索加固补证**：[计划](search-hardening/task_plan.md) / [最终补证](search-hardening/closure/report.md)。新版独立探针、冻结源码真实点击/翻页/故障恢复；旧实验不倒填，产品实现不变。
+
 - **检索修复**：[超大会话检索](large-session-search/task_plan.md) / [证据](large-session-search/findings.md)。旧缓存全文补查、命中后截取摘录，含 J1900 真实只读复验。
 
 - **当前：项目阅读与设置**：[计划](project-reader-ux/task_plan.md) / [状态](project-reader-ux/progress.md)。4/4工程交付，rc.3已安装并启动；用户继续验收，U1仍待安排。

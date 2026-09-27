@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>History Viewer</title>
+  <title>AgentTraceMesh</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body class="reader-page">
   <div id="app">
     <aside id="sidebar">
       <div id="sidebarTop" class="sidebar-top">
-        <div class="reader-brand"><a href="/" class="brand-title">History Viewer</a><div class="reader-brand-actions"><button type="button" class="btn small" id="readerToggleList" aria-expanded="true" aria-controls="readerProject sessionList">会话目录</button><button type="button" class="btn small" id="readerSettings" data-open-settings>设置</button></div></div>
+        <div class="reader-brand"><a href="/" class="brand-title">AgentTraceMesh</a><div class="reader-brand-actions"><button type="button" class="btn small" id="readerToggleList" aria-expanded="true" aria-controls="readerProject sessionList">会话目录</button><button type="button" class="btn small" id="readerSettings" data-open-settings>设置</button></div></div>
         <nav class="reader-nav" aria-label="主导航"><a href="/">选择项目</a><a href="/?view=search">搜索历史</a></nav>
         <div class="reader-project-control"><label for="readerProject">当前项目</label><select id="readerProject"><option value="__choose_project__" disabled selected>选择项目…</option></select><button type="button" class="btn small" id="readerProjectsMore" hidden>更多项目</button></div>
         <div class="reader-source-control"><label for="readerSource">会话来源</label><select id="readerSource"><option value="">全部来源</option></select></div>
@@ -38,6 +38,7 @@
             </select>
           </div>
         </div>
+        <div class="reader-group-toolbar"><button id="readerGroupRelated" type="button" class="btn small" aria-pressed="true" aria-controls="sessionList">归组相关会话</button></div>
         <div id="fileFilterBanner" class="file-filter-banner" hidden>
           <span class="file-filter-label">Filter:</span>
           <span class="file-filter-path" data-file-filter-label title="Sessions touching this path"></span>
@@ -54,7 +55,7 @@
 
     <main id="main">
       <div id="sessionHeader" class="session-header">
-        <div class="reader-session-heading"><div class="session-title">选择项目，开始阅读</div><button id="toggleConversationFind" type="button" class="btn small" aria-expanded="false" aria-controls="conversationFind">查找对话内容</button></div>
+        <div class="reader-session-heading"><div class="session-title">选择项目，开始阅读</div><div class="reader-heading-actions"><button id="toggleKeyMessages" type="button" class="btn small" aria-expanded="false" aria-controls="keyMessagesPanel" disabled>关键消息</button><button id="toggleConversationFind" type="button" class="btn small" aria-expanded="false" aria-controls="conversationFind">查找对话内容</button></div></div>
         <div class="session-meta muted"></div>
         <div id="historyTarget" class="muted" role="status" hidden></div>
         <details id="sessionDetails" class="reader-details"><summary>会话信息与续接</summary>
@@ -164,6 +165,11 @@
         </section>
         </details>
       </div>
+      <section id="keyMessagesPanel" class="key-messages-panel" aria-label="关键消息导航" hidden>
+        <p class="muted">自动标记只供定位，以原文为准；最后回复不代表任务已完成。</p>
+        <p id="keyMessagesStatus" class="muted" role="status" aria-live="polite"></p>
+        <ol id="keyMessagesList" class="key-messages-list"></ol>
+      </section>
       <div id="headerResizer" hidden></div>
       <div id="transcriptArea" class="transcript-area">
         <div id="toolTimeline" class="tool-timeline" hidden aria-label="Tool call timeline"></div>

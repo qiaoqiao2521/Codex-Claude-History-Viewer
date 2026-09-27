@@ -409,6 +409,10 @@ def sessions(indexers, *, project, source=None, cursor=None, limit=50, errors=No
         except (ValueError, OSError, sqlite3.Error) as exc:
             errors.append({'system': system, 'source': src, 'error': error_code(exc)})
     items.sort(key=lambda item: (-(item['updated_at'] or 0), item['source'], item['store_id'], item['id']))
+    # Annotate the complete bounded candidate set before slicing pages. Grouping
+    # never changes membership, order, cursor semantics or source identities.
+    from .related_sessions import annotate_related_sessions
+    items = annotate_related_sessions(items)
     result = _finish(items, offset, limit, revision, qhash, errors, truncated)
     result.update(project=project, source=source, has_more=bool(result['next_cursor']))
     _check_revision(selected, revision, before_errors)

@@ -529,7 +529,7 @@ class Handler(SimpleHTTPRequestHandler):
         if endpoint == 'health':
             return self.send_json(health(self._source_backends, demo=self._demo,
                 system=self._runtime_system, version=Path(__file__).with_name('VERSION').read_text().strip()))
-        selected_source = reuse.canonical_source(value('source') or None) if endpoint == 'sessions' else None
+        selected_source = reuse.canonical_source(value('source') or None) if endpoint in ('sessions', 'key-messages') else None
         sources, errors = self._reuse_sources(requested_source=selected_source)
         try:
             page = {'cursor':value('cursor'), 'limit':value('limit',20), 'errors':errors}
@@ -545,6 +545,11 @@ class Handler(SimpleHTTPRequestHandler):
             elif endpoint == 'sessions':
                 page['limit'] = value('limit', 50)
                 result = reuse.sessions(sources, project=value('project'), source=selected_source, **page)
+            elif endpoint == 'key-messages':
+                from history_core.conversation_navigation import key_messages
+                result = key_messages(sources, system=value('system'), source=selected_source,
+                    session_id=value('session'), store_id=value('store_id') or None,
+                    source_revision=value('source_revision') or None)
             elif endpoint == 'timeline':
                 result = reuse.timeline(sources, project=value('project'), file_path=value('file') or None, **page)
             elif endpoint == 'raw':
@@ -568,7 +573,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json(result)
         except (ValueError,OSError,sqlite3.Error) as exc:
             code = reuse.error_code(exc)
-            return self.send_json({'error':code},status=409 if 'revision' in code or 'stale' in code else 400)
+            conflict = code != 'source_revision_required' and ('revision' in code or 'stale' in code)
+            return self.send_json({'error':code},status=409 if conflict else 400)
 
     def handle_reuse_post(self, parsed, data):
         from history_core import reuse
