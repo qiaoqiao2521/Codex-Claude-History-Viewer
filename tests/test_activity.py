@@ -169,3 +169,33 @@ class ActivityBoundaryTests(unittest.TestCase):
         with patch('history_core.activity.redact_text',side_effect=mutate):r=self.query()
         self.assertTrue(r['partial']);self.assertEqual(r['sources'][0]['items'],[])
         self.assertIn('revision_changed',r['sources'][0]['coverage']['reason'])
+
+
+class ActivityReadableTimeTests(unittest.TestCase):
+    setUp = ActivityTests.setUp
+    query = ActivityTests.query
+
+    def test_activity_exposes_window_and_message_local_times(self):
+        report=self.query(refresh=True)
+        self.assertEqual(report['window']['start_local'],'2026-09-27T00:00:00.000+08:00')
+        self.assertEqual(report['window']['end_local'],'2026-09-28T00:00:00.000+08:00')
+        edge=next(x for x in report['sources'][0]['items'] if x['session_id']=='edge')['evidence'][0]
+        self.assertEqual(edge['timestamp_local'],'2026-09-27T23:59:59.500+08:00')
+        from datetime import datetime
+        self.assertEqual(int(datetime.fromisoformat(edge['timestamp_local']).timestamp()*1000),edge['timestamp_ms'])
+
+    def test_known_report_timestamps_do_not_move_to_next_day(self):
+        from history_core.activity import local_timestamp
+        self.assertEqual(local_timestamp(1790691974272,'Asia/Shanghai'),'2026-09-29T22:26:14.272+08:00')
+        self.assertEqual(local_timestamp(1790694630633,'Asia/Shanghai'),'2026-09-29T23:10:30.633+08:00')
+        self.assertEqual(local_timestamp(1790691974272,'UTC'),'2026-09-29T14:26:14.272+00:00')
+
+    def test_dst_repeated_hour_is_distinguished_by_offset(self):
+        from history_core.activity import local_timestamp, window_metadata
+        from datetime import datetime
+        times=['2026-11-01T05:30:00+00:00','2026-11-01T06:30:00+00:00']
+        local=[local_timestamp(int(datetime.fromisoformat(t).timestamp()*1000),'America/New_York') for t in times]
+        self.assertEqual(local,['2026-11-01T01:30:00.000-04:00','2026-11-01T01:30:00.000-05:00'])
+        a,b=window('2026-03-08','America/New_York');metadata=window_metadata(a,b,'America/New_York')
+        self.assertEqual(metadata['start_local'],'2026-03-08T00:00:00.000-05:00')
+        self.assertEqual(metadata['end_local'],'2026-03-09T00:00:00.000-04:00')

@@ -2933,7 +2933,8 @@ function buildWindowBriefingHtml(briefing) {
       const params = new URLSearchParams({system: ev.system, source: ev.source, session: ev.session_id,
         store_id: ev.store_id, source_revision: ev.source_revision, message: String(ev.message_index)});
       const kind = ev.role === "user" ? "用户请求" : ev.role === "tool" ? "工具记录" : "助手报告";
-      return `<li><a href="/history?${escapeHtml(params.toString())}">${kind} · 消息 ${fmtInt(ev.message_index)}</a><p>${escapeHtml(ev.text)}${ev.text_truncated ? "（正文截断）" : ""}</p></li>`;
+      const time = ev.timestamp_local ? ` · <time datetime="${escapeHtml(ev.timestamp_local)}">${escapeHtml(ev.timestamp_local)}</time>` : "";
+      return `<li><a href="/history?${escapeHtml(params.toString())}">${kind} · 消息 ${fmtInt(ev.message_index)}</a>${time}<p>${escapeHtml(ev.text)}${ev.text_truncated ? "（正文截断）" : ""}</p></li>`;
     }).join("");
     return `<details class="briefing-item"><summary>会话 ${escapeHtml(item.session_id)} · ${fmtInt(item.message_count)} 条窗内记录</summary><p class="muted">项目（会话背景）：${escapeHtml(item.project || "未绑定")}</p>${item.evidence_truncated ? '<p>仅展示最近六条窗内消息，完整记录请打开原文。</p>' : ''}<ul>${evidence}</ul></details>`;
   }).join("");

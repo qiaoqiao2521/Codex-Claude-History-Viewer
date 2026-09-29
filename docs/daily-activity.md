@@ -64,6 +64,7 @@ Python 公共接口是 `history_core.query_activity(stores, date=..., timezone=.
   当天窗口是 `[本地零点, 次日零点)`，DST 日可能不是 24 小时；与主机 TZ 无关。
 - 只按有记录时间的消息/事件取证。创建时间、目录日期、mtime 不代替发生时间。
   缺少原始时间的记录排除并披露。上下文、系统消息、内部思考不作活动证据。
+- 每条证据保留 `timestamp_ms`，同时提供请求时区的 `timestamp_local`（ISO 8601、毫秒精度、含偏移）；窗口提供 `start_local/end_local`。调用者直接引用，不让模型口算时间。重复的夏令时本地时刻以偏移区分；日期筛选仍使用原来的 epoch 半开区间。
 - 每条证据含 `system/source/store_id/session_id/source_revision/message_index`。
   原始行号与 mcode 消息 ID/turn ID/工具 call ID 保留；记录中有明确父会话关系时保留。
   `source_revision` 是**索引快照**修订，不能冒充当前文件内容哈希或 Web 深链修订。

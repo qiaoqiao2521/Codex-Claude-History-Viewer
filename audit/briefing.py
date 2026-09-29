@@ -224,7 +224,7 @@ def render_briefing_markdown(briefing: Dict[str, Any]) -> str:
             if item['evidence_truncated']:
                 lines.append("仅展示最近六条窗内消息，完整对话请回源。")
             for ev in item['evidence']:
-                lines += [f"- {ev['role']} · 消息 {ev['message_index']} · {ev['source_revision']}: {ev['text']}"]
+                lines += [f"- {ev['role']} · {ev.get('timestamp_local', '')} · 消息 {ev['message_index']} · {ev['source_revision']}: {ev['text']}"]
                 if ev['text_truncated']:
                     lines.append("  （正文已截断）")
         return "\n".join(lines)

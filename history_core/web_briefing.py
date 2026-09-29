@@ -1,5 +1,5 @@
 """Read a local-day briefing from the Web's existing index, never whole audits."""
-from .activity import SUPPORTED, window
+from .activity import SUPPORTED, window, local_timestamp, window_metadata
 from .evidence import redact_text, source_store_id
 from .reuse import index_revision, query_budget
 
@@ -13,7 +13,7 @@ def build_window_briefing(backend, date, timezone, project=None, limit=2000):
                     checked_through=None, query_budget_seconds=2,
                     evidence_limit_per_session=6, excerpt_chars=600)
     report = dict(schema_version='history.web-briefing.v2', date=date, timezone=timezone,
-                  source=source, window=dict(start_ms=start, end_ms=end, semantics='[start,end)'),
+                  source=source, window=window_metadata(start, end, timezone),
                   overview=dict(session_count=0, project_count=0, message_count=0),
                   items=[], coverage=coverage, partial=True, truncated=False,
                   session_limit=limit,
@@ -54,6 +54,7 @@ def build_window_briefing(backend, date, timezone, project=None, limit=2000):
             identity = dict(system=system, source=source, store_id=store,
                             session_id=sid, source_revision=revision)
             evidence = [dict(identity, message_index=m['message_index'], timestamp_ms=m['activity_ts_ms'],
+                             timestamp_local=local_timestamp(m['activity_ts_ms'], timezone),
                              role=m['role'], kind=m['kind'], text=redact_text(m['text'] or '')[:600],
                              text_truncated=bool(m['text_truncated'])) for m in reversed(messages)]
             report['items'].append(dict(identity, project=redact_text(meta['cwd'] or '') if meta else '',

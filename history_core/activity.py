@@ -31,6 +31,17 @@ def window(date, timezone):
     return int(start.timestamp() * 1000), int(end.timestamp() * 1000)
 
 
+
+def local_timestamp(timestamp_ms, timezone):
+    """Deterministic display time in the requested zone; retain epoch for identity."""
+    return datetime.fromtimestamp(timestamp_ms / 1000, ZoneInfo(timezone)).isoformat(timespec='milliseconds')
+
+
+def window_metadata(start, end, timezone):
+    return dict(start_ms=start, end_ms=end, semantics='[start,end)',
+                start_local=local_timestamp(start, timezone), end_local=local_timestamp(end, timezone))
+
+
 def _now():
     return datetime.now(UTC.utc).isoformat()
 
@@ -178,7 +189,7 @@ def read_store(indexer, source, root, *, date, timezone, refresh=False,
                 body_chars += len(text)
                 meta = json.loads(message['activity_meta_json'] or '{}')
                 evidence.append(dict(identity, message_index=message['message_index'],
-                    timestamp_ms=message['activity_ts_ms'], role=message['role'], kind=message['kind'],
+                    timestamp_ms=message['activity_ts_ms'], timestamp_local=local_timestamp(message['activity_ts_ms'], timezone), role=message['role'], kind=message['kind'],
                     evidence_type=('intent' if message['role']=='user' else 'tool_record' if message['role']=='tool' or message['kind'].startswith('tool') else 'assistant_report'),
                     text=text[text_offset:text_offset+2000], text_truncated=text_offset>0 or len(text)>2000,
                     text_offset=text_offset, text_chars=len(text),
@@ -231,7 +242,7 @@ def query_activity(stores, *, date, timezone, data_dir, refresh=False, limit=100
             results.append(dict(source=source, items=[], coverage=dict(supported=True, readable=False if isinstance(exc, OSError) else None,
                 indexed=None, freshness='unknown', last_successful_refresh=None, last_observed_at=None, checked_through=None, truncated=None, query_budget_seconds=2, reason=error_code(exc), detail=redact_text(str(exc)))))
     return dict(schema_version='history.activity.v1', date=date, timezone=timezone,
-                window=dict(start_ms=start, end_ms=end, semantics='[start,end)'), sources=results,
+                window=window_metadata(start, end, timezone), sources=results,
                 partial=any(not r['coverage'].get('indexed') or r['coverage'].get('freshness')!='observed_unchanged'
                             or r['coverage'].get('identity_conflicts') or r['coverage'].get('unparsed_indexed_records') or r['coverage'].get('recording_warnings') or r['coverage'].get('messages_without_verified_time') or r['coverage'].get('truncated')
                             for r in results),

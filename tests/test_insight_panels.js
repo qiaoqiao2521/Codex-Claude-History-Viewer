@@ -576,11 +576,12 @@ async function testHistoryTargetKeepsQueryAndNavigatesExactMessage() {
 
 async function testWindowBriefingDisclosureAndLinks() {
   const { api } = await loadApp();
-  const base = {schema_version: 'history.web-briefing.v2', date:'2026-09-27', timezone:'Asia/Shanghai',source:'codex',overview:{session_count:1,message_count:2},coverage:{supported:true},items:[{session_id:'old',message_count:2,evidence_truncated:true,evidence:[{system:'linux',source:'codex',store_id:'store',session_id:'old',source_revision:'rev',message_index:3,role:'user',text:'<script>outside?</script>',text_truncated:true}]}]};
+  const base = {schema_version: 'history.web-briefing.v2', date:'2026-09-27', timezone:'Asia/Shanghai',source:'codex',overview:{session_count:1,message_count:2},coverage:{supported:true},items:[{session_id:'old',message_count:2,evidence_truncated:true,evidence:[{system:'linux',source:'codex',store_id:'store',session_id:'old',source_revision:'rev',message_index:3,timestamp_local:'2026-09-27T23:59:59.500+08:00',role:'user',text:'<script>outside?</script>',text_truncated:true}]}]};
   const html = api.buildBriefingHtml(base);
   assert.match(html,/Asia\/Shanghai/); assert.match(html,/message=3/); assert.match(html,/source_revision=rev/);
   assert.match(html,/最近六条/); assert.match(html,/正文截断/); assert.doesNotMatch(html,/<script>/);
   assert.doesNotMatch(html,/Friction|Nothing blocked|No file changes/);
+  assert.match(html, /<time datetime="2026-09-27T23:59:59.500\+08:00">/);
   assert.match(api.buildBriefingHtml({...base,coverage:{supported:false},items:[],overview:{session_count:0}}),/不能据此判断没有工作/);
   assert.match(api.buildBriefingHtml({...base,items:[],overview:{session_count:0}}),/不表示当天没有工作/);
 }
