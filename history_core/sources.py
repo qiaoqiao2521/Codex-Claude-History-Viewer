@@ -984,6 +984,7 @@ def parse_codex_session_file(path: Path):
     search_len = 0
     tool_names = {}
     usage_totals = None
+    relations = {}
 
     def add_search(text):
         nonlocal search_len
@@ -1000,7 +1001,7 @@ def parse_codex_session_file(path: Path):
     valid_json_count = 0
     try:
         with path.open("r", encoding="utf-8") as f:
-            for line in f:
+            for line_no, line in enumerate(f, 1):
                 line_str = line.strip()
                 if not line_str:
                     continue
@@ -1028,6 +1029,15 @@ def parse_codex_session_file(path: Path):
                     payload = obj.get("payload", {})
                     session_id = payload.get("id", session_id)
                     cwd = payload.get("cwd", cwd)
+                    parent = payload.get('forked_from_id') or payload.get('parent_session_id')
+                    origin = payload.get('source')
+                    if isinstance(origin, dict):
+                        agent = origin.get('subagent')
+                        spawn = agent.get('thread_spawn') if isinstance(agent, dict) else None
+                        if isinstance(spawn, dict):
+                            parent = parent or spawn.get('parent_thread_id')
+                    if isinstance(parent, str):
+                        relations['parent_session_id'] = parent
                     meta_ts = parse_ts(payload.get("timestamp"))
                     if meta_ts is not None:
                         if start_ts_ms is None or meta_ts < start_ts_ms:
@@ -1044,6 +1054,7 @@ def parse_codex_session_file(path: Path):
                         if text:
                             messages.append({
                                 "ts_ms": ts_ms,
+                                "raw_ref": {"line_no": line_no},
                                 "role": role,
                                 "kind": kind,
                                 "text": text,
@@ -1074,6 +1085,7 @@ def parse_codex_session_file(path: Path):
                             if text:
                                 messages.append({
                                     "ts_ms": ts_ms,
+                                    "raw_ref": {"line_no": line_no},
                                     "role": "assistant",
                                     "kind": "reasoning_summary",
                                     "text": text,
@@ -1093,8 +1105,10 @@ def parse_codex_session_file(path: Path):
                         if text:
                             messages.append({
                                 "ts_ms": ts_ms,
+                                "raw_ref": {"line_no": line_no},
                                 "role": "tool",
                                 "kind": "tool_use",
+                                "tool_call_id": call_id,
                                 "text": text,
                                 "tool_summary": _codex_summarize_tool_use(name, raw_input, is_custom=(payload_type == "custom_tool_call")),
                             })
@@ -1109,8 +1123,10 @@ def parse_codex_session_file(path: Path):
                         if text:
                             messages.append({
                                 "ts_ms": ts_ms,
+                                "raw_ref": {"line_no": line_no},
                                 "role": "tool",
                                 "kind": "tool_result",
+                                "tool_call_id": call_id,
                                 "text": text,
                                 "tool_summary": _codex_summarize_tool_result(name, raw_output=raw_output),
                             })
@@ -1131,6 +1147,7 @@ def parse_codex_session_file(path: Path):
                         if isinstance(text, str) and text:
                             messages.append({
                                 "ts_ms": ts_ms,
+                                "raw_ref": {"line_no": line_no},
                                 "role": "assistant",
                                 "kind": "agent_reasoning",
                                 "text": text,
@@ -1170,6 +1187,7 @@ def parse_codex_session_file(path: Path):
         "messages": messages,
         "search_blob": search_blob,
         "usage": usage_totals,
+        "activity_metadata": relations,
     }
 
 
@@ -1406,6 +1424,8 @@ def parse_claude_session_file(path: Path):
             return
         msg = {
             "ts_ms": ts_ms,
+            "raw_ref": {"line_no": line_no, "record_id": obj.get("uuid") if isinstance(obj, dict) else None,
+                        "parent_message_id": obj.get("parentUuid") if isinstance(obj, dict) else None},
             "role": role,
             "kind": kind,
             "text": text,
@@ -1424,7 +1444,8 @@ def parse_claude_session_file(path: Path):
     valid_json_count = 0
     try:
         with path.open("r", encoding="utf-8") as f:
-            for line in f:
+            for line_no, line in enumerate(f, 1):
+                obj = None
                 try:
                     obj = json.loads(line)
                     valid_json_count += 1
@@ -1975,6 +1996,16 @@ class Indexer:
                     cur.execute(f"ALTER TABLE sessions ADD COLUMN {column} INTEGER DEFAULT 0")
                 except sqlite3.OperationalError:
                     pass
+            session_columns = {row[1] for row in cur.execute("PRAGMA table_info(sessions)")}
+            if "activity_metadata_json" not in session_columns:
+                cur.execute("ALTER TABLE sessions ADD COLUMN activity_metadata_json TEXT")
+            message_columns = {row[1] for row in cur.execute("PRAGMA table_info(messages)")}
+            for name, kind in (("activity_ts_ms", "INTEGER"), ("activity_meta_json", "TEXT")):
+                if name not in message_columns:
+                    cur.execute(f"ALTER TABLE messages ADD COLUMN {name} {kind}")
+                    # Existing caches cannot attest whether timestamps were inferred.
+                    cur.execute("UPDATE sessions SET file_signature = NULL")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_messages_activity ON messages(activity_ts_ms, session_id)")
             self.conn.commit()
 
     def maybe_update_index(self, max_age_seconds=None):
@@ -1988,7 +2019,7 @@ class Indexer:
         self.last_scan = now
         self.backfill_local_title_overrides()
 
-    def scan_sessions(self):
+    def scan_sessions(self, *, skipped_paths=(), build_audits=True, preserve_recordings=False):
         # Enumeration must succeed before a missing path can authorize cache removal.
         root_stat = self.sessions_dir.stat()
         if not self.sessions_dir.is_dir():
@@ -2004,6 +2035,13 @@ class Indexer:
 
         def fingerprint(path):
             st = path.stat()
+            if self.source == 'mcode':
+                manifest = path.parent / 'manifest.json'
+                if manifest.is_symlink():
+                    raise ValueError('source_symlink_not_allowed')
+                ms = manifest.stat()
+                return json.dumps([st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_dev, st.st_ino,
+                                   ms.st_mtime_ns, ms.st_ctime_ns, ms.st_size, ms.st_ino]), st.st_mtime
             return json.dumps([st.st_mtime_ns, st.st_ctime_ns, st.st_size,
                                st.st_dev, st.st_ino]), st.st_mtime
 
@@ -2015,11 +2053,13 @@ class Indexer:
 
             def updates():
                 for path in session_files:
+                    if path in skipped_paths:
+                        continue
                     signature, mtime = fingerprint(path)
                     row = existing_by_path.get(str(path))
                     if (row and row["file_signature"] == signature
                             and row["parser_version"] == self.parser_version
-                            and row["audit_version"] == AUDIT_VERSION):
+                            and (not build_audits or row["audit_version"] == AUDIT_VERSION)):
                         continue
                     session = self._parse_file_fn(path)
                     if session is None:
@@ -2044,6 +2084,19 @@ class Indexer:
             changed = False
             for row, session, mtime, signature, path in updates():
                 changed = True
+                collision = self.conn.execute("SELECT file_path FROM sessions WHERE id=?", (session['id'],)).fetchone()
+                if (preserve_recordings or self.source == 'mcode') and collision and collision[0] != str(path) and Path(collision[0]) in session_files:
+                    if self.source == 'mcode':
+                        raise ValueError('duplicate_session_identity')
+                    # A copied/forked recording must not erase another recording's
+                    # messages. Keep native identity separately from the cache key.
+                    import hashlib
+                    native_id = session['id']
+                    suffix = hashlib.sha256(str(path.relative_to(self.sessions_dir)).encode()).hexdigest()[:16]
+                    session['id'] = native_id + '@recording-' + suffix
+                    session.setdefault('activity_metadata', {}).update(
+                        identity_conflict=True, native_session_id=native_id,
+                        identity_policy='distinct recording; no automatic work deduplication')
                 if row and row["id"] != session["id"]:
                     self.conn.execute("DELETE FROM messages WHERE session_id = ?", (row["id"],))
                     self.conn.execute("DELETE FROM sessions WHERE id = ?", (row["id"],))
@@ -2084,12 +2137,14 @@ class Indexer:
                     ),
                 )
 
+                self.conn.execute("UPDATE sessions SET activity_metadata_json=? WHERE id=?",
+                    (json.dumps(session.get('activity_metadata', {})), session['id']))
                 messages = session["messages"]
                 if messages:
                     self.conn.executemany(
                         """
-                        INSERT INTO messages (session_id, ts_ms, role, kind, text, tool_summary_json)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        INSERT INTO messages (session_id, ts_ms, role, kind, text, tool_summary_json, activity_ts_ms, activity_meta_json)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         [
                             (
@@ -2099,12 +2154,16 @@ class Indexer:
                                 m["kind"],
                                 m["text"],
                                 json.dumps(m["tool_summary"]) if isinstance(m.get("tool_summary"), dict) else None,
+                                m.get("ts_ms") if m.get("ts_ms") and not str(m.get("kind", "")).startswith("raw_json") else None,
+                                json.dumps({key: m[key] for key in ("raw_ref", "tool_call_id", "turn_id", "parent_id", "tool_result_error") if key in m}),
                             )
                             for m in messages
                         ],
                     )
 
-                audit_payload = build_audit_for_file(Path(session["file_path"]), self.source, session_id_hint=session["id"])
+                audit_payload = build_audit_for_file(Path(session["file_path"]), self.source, session_id_hint=session["id"]) if build_audits else None
+                if audit_payload is None and self.source == 'mcode':
+                    self.conn.execute("UPDATE sessions SET audit_version=?, audit_status='unsupported' WHERE id=?", (AUDIT_VERSION, session['id']))
                 if audit_payload is not None:
                     fields = serialize_audit_fields(audit_payload)
                     fields["audit_updated_at"] = int(time.time() * 1000)
@@ -2141,7 +2200,9 @@ class Indexer:
                     )
 
                 if fingerprint(path)[0] != signature:
-                    raise ValueError("source_changed_during_refresh: %s" % path)
+                    error = ValueError("source_changed_during_refresh: %s" % path)
+                    error.changed_path = path
+                    raise error
 
             final_root_stat = self.sessions_dir.stat()
             if (root_stat.st_dev, root_stat.st_ino) != (final_root_stat.st_dev, final_root_stat.st_ino):

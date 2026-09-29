@@ -10,6 +10,14 @@ from .providers import SOURCES, canonical_source
 
 
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "activity":
+        from .activity import main as activity_main
+        try:
+            return activity_main(argv[1:])
+        except Exception as exc:
+            print(json.dumps({"error": type(exc).__name__, "detail": str(exc)}, ensure_ascii=False), file=sys.stderr)
+            return 2
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=canonical_source, choices=SOURCES, required=True)
     parser.add_argument("--source-path", type=Path, required=True, help="Explicit sessions directory or native SQLite file")

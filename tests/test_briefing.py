@@ -221,7 +221,8 @@ class BriefingEndpointPaginationTests(unittest.TestCase):
 
     def test_handler_aggregates_beyond_one_page(self):
         total = 210  # > DEFAULT_LIMIT (200), so aggregation must paginate
-        start_base = app.parse_date_param("2026-09-06", end=False)
+        from history_core.activity import window
+        start_base = window("2026-09-06", "UTC")[0]
         with self.indexer.lock:
             for i in range(total):
                 self.indexer.conn.execute(
@@ -236,20 +237,23 @@ class BriefingEndpointPaginationTests(unittest.TestCase):
                      f"/proj-{i % 2}", f"Bulk {i}", 1, 0.0, "", 1, 0, 100),
                 )
 
+        self.indexer.conn.execute("INSERT INTO messages(session_id,ts_ms,activity_ts_ms,role,kind,text) SELECT id,start_ts_ms,start_ts_ms,'user','message','Window request' FROM sessions")
+        self.indexer.conn.commit()
         handler = object.__new__(app.Handler)
         backend = SimpleNamespace(indexer=self.indexer, source="codex")
         briefing, markdown, error = handler._build_briefing_for_range(backend, "2026-09-06", None)
         self.assertIsNone(error)
         self.assertEqual(briefing["overview"]["session_count"], total)
-        self.assertEqual(briefing["overview"]["tokens_total"], total * 100)
+        self.assertNotIn("tokens_total", briefing["overview"])
         self.assertIn(f"Sessions: {total}", markdown)
-        self.assertNotIn("truncated", briefing)
+        self.assertFalse(briefing["truncated"])
 
     def test_safety_cap_is_flagged_not_silent(self):
         # M1/A4: when the runaway cap stops pagination early, the response
         # and markdown must say so — silent undercounting is forbidden.
         total = 250
-        start_base = app.parse_date_param("2026-09-06", end=False)
+        from history_core.activity import window
+        start_base = window("2026-09-06", "UTC")[0]
         with self.indexer.lock:
             for i in range(total):
                 self.indexer.conn.execute(
@@ -264,6 +268,8 @@ class BriefingEndpointPaginationTests(unittest.TestCase):
                      f"/proj-{i % 2}", f"Cap {i}", 1, 0.0, "", 1, 0, 100),
                 )
 
+        self.indexer.conn.execute("INSERT INTO messages(session_id,ts_ms,activity_ts_ms,role,kind,text) SELECT id,start_ts_ms,start_ts_ms,'user','message','Window request' FROM sessions")
+        self.indexer.conn.commit()
         handler = object.__new__(app.Handler)
         backend = SimpleNamespace(indexer=self.indexer, source="codex")
         from unittest.mock import patch
@@ -272,9 +278,9 @@ class BriefingEndpointPaginationTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertTrue(briefing.get("truncated"), "cap hit must set the truncated flag")
         self.assertEqual(briefing.get("session_limit"), 100)
-        self.assertGreater(briefing["overview"]["session_count"], 100)
+        self.assertEqual(briefing["overview"]["session_count"], 100)
         self.assertLess(briefing["overview"]["session_count"], total)
-        self.assertIn("safety cap", markdown)
+        self.assertIn("候选超过上限", markdown)
 
 
 if __name__ == "__main__":

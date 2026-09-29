@@ -2,4 +2,6 @@
 
 from .reader import HistoryReader
 
-__all__ = ["HistoryReader"]
+__all__ = ["HistoryReader", "query_activity"]
+
+from .activity import query_activity

@@ -425,6 +425,22 @@ async function testNarrativeClearedWhenBriefingMovesToAnotherDate() {
   assert.equal(api.getCurrentNarrative(), null);
 }
 
+async function testBriefingRequestsCarryBrowserTimezone() {
+  const requests = [];
+  const { api } = await loadApp({fetchImpl: async (url, options = {}) => {
+    requests.push({url: String(url), options});
+    return {ok:true, json:async()=>({briefing:{date:'2026-09-27', overview:{}}, narrative:{narrative:'coverage'}})};
+  }});
+  document.getElementById('briefingDate').value = '2026-09-27';
+  await api.fetchBriefingPanel();
+  await api.generateBriefingNarrative();
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const get = requests.find(x=>x.url.includes('/briefing?'));
+  assert.equal(new URL(get.url, 'http://localhost').searchParams.get('timezone'), tz);
+  const post = requests.find(x=>x.options.method === 'POST');
+  assert.equal(JSON.parse(post.options.body).timezone, tz);
+}
+
 async function testNarrativeDroppedWhenDateMovedMidFlight() {
   // Review fix: a slow narrative POST whose date no longer matches the view
   // must be dropped instead of overwriting the visible briefing.
@@ -558,8 +574,20 @@ async function testHistoryTargetKeepsQueryAndNavigatesExactMessage() {
   assert.equal(await api.applyHistoryTarget(new URLSearchParams({session: "shared", message: "2"}), async () => { api.setCurrentSession({id: "new"}); return true; }), false);
 }
 
+async function testWindowBriefingDisclosureAndLinks() {
+  const { api } = await loadApp();
+  const base = {schema_version: 'history.web-briefing.v2', date:'2026-09-27', timezone:'Asia/Shanghai',source:'codex',overview:{session_count:1,message_count:2},coverage:{supported:true},items:[{session_id:'old',message_count:2,evidence_truncated:true,evidence:[{system:'linux',source:'codex',store_id:'store',session_id:'old',source_revision:'rev',message_index:3,role:'user',text:'<script>outside?</script>',text_truncated:true}]}]};
+  const html = api.buildBriefingHtml(base);
+  assert.match(html,/Asia\/Shanghai/); assert.match(html,/message=3/); assert.match(html,/source_revision=rev/);
+  assert.match(html,/最近六条/); assert.match(html,/正文截断/); assert.doesNotMatch(html,/<script>/);
+  assert.doesNotMatch(html,/Friction|Nothing blocked|No file changes/);
+  assert.match(api.buildBriefingHtml({...base,coverage:{supported:false},items:[],overview:{session_count:0}}),/不能据此判断没有工作/);
+  assert.match(api.buildBriefingHtml({...base,items:[],overview:{session_count:0}}),/不表示当天没有工作/);
+}
+
 async function main() {
   const tests = [
+    testWindowBriefingDisclosureAndLinks,
     testHistoryTargetKeepsQueryAndNavigatesExactMessage,
     testUsageHtmlEmptyState,
     testUsageHtmlRendersChipsBarsAndTopSessions,
@@ -577,7 +605,8 @@ async function main() {
     testOutOfOrderAuditResponseKeepsLatestSession,
     testSessionChangeReloadsVisiblePlansPanel,
     testNarrativeClearedWhenBriefingMovesToAnotherDate,
-    testNarrativeDroppedWhenDateMovedMidFlight,
+    testBriefingRequestsCarryBrowserTimezone,
+  testNarrativeDroppedWhenDateMovedMidFlight,
   ];
   for (const test of tests) {
     await test();

@@ -209,3 +209,7 @@ Validation and source capability matrix: [reuse findings](../plans/history-reuse
 `related_sessions.py` annotates the bounded conversation candidate set before pagination. Only identical nonempty project paths and informative normalized titles qualify; groups preserve every original source/store/session identity and indicate possible relatedness, not task equivalence. Group counts describe the bounded candidate set and inherit its partial disclosure.
 
 `GET /api/reuse/key-messages` uses `conversation_navigation.py` over the existing message index. Full text is matched before cutting 240-character excerpts; absolute message numbering precedes context/tool-input exclusion. Up to 80 wording hints plus the first request and last ordinary assistant reply are returned, with explicit truncation/coverage limits. Source revision is required and checked before/after reading; native adapters without a compatible message index report unsupported. Hints are navigation, not verification of successful delivery. Reader deep links expand and rerender target tool results before scrolling.
+
+## Web daily evidence
+
+`history_core/web_briefing.py` reads verified message timestamps from the existing Web index using the activity IANA-local-day contract. GET/POST `/briefing` share schema `history.web-briefing.v2`; old whole-session audit ranking and cumulative tokens are excluded. Absolute message numbering precedes window filtering. Coverage stays unknown/partial because this path does not observe live recordings. See [daily activity](daily-activity.md).

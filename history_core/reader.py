@@ -17,7 +17,7 @@ from .sources import (Indexer, OpenCodeIndexer, HermesStateIndexer,
 class HistoryReader:
     """Explicit refresh and reads, with no forwarded legacy mutation methods."""
 
-    def __init__(self, source, source_path, data_dir=None):
+    def __init__(self, source, source_path, data_dir=None, *, validate_tree=True):
         source = canonical_source(source)
         if source not in SOURCES:
             raise ValueError('unsupported_source')
@@ -27,7 +27,10 @@ class HistoryReader:
         self.__indexer = None
         self.__cache = None
         self.__page_revision = None
-        self.__validate_source()
+        if validate_tree:
+            self.__validate_source()
+        else:
+            self.__check_root()
         if self.__native:
             self.__indexer = native_indexer(source, self.__root)
         else:
@@ -155,6 +158,8 @@ class HistoryReader:
         return res
 
     def handoff(self, session_id, *, include_plans=False):
+        if self.__source == 'mcode':
+            raise ValueError('mcode_handoff_unsupported_use_activity')
         if self.__indexer is None:
             raise ValueError('reader_closed')
         self.__check_root()
@@ -177,6 +182,17 @@ class HistoryReader:
                 with path.open('rb'):
                     pass
         return service.handoff(self.__indexer, session_id, include_plans=include_plans)
+
+    def activity(self, *, date, timezone, refresh=False, limit=100, offset=0,
+                 index_revision=None, session_id=None, evidence_limit=6, message_offset=0, message_index=None, text_offset=0):
+        """Message-time evidence from the selected store; never an outcome score."""
+        from .activity import read_store
+        self.__check_root()
+        self.__validate_cache()
+        return read_store(self.__indexer, self.__source, self.__root,
+                          date=date, timezone=timezone, refresh=refresh,
+                          limit=limit, offset=offset, index_revision=index_revision,
+                          session_id=session_id, evidence_limit=evidence_limit, message_offset=message_offset, message_index=message_index, text_offset=text_offset)
 
     def close(self):
         if self.__indexer is not None:

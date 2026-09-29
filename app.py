@@ -34,7 +34,6 @@ from audit.ai_audit import (
 from audit.llm_client import LLMError, call_chat_completions, detect_provider
 from audit.handoff import build_handoff_bundle
 from audit.briefing import (
-    BRIEFING_AUDIT_ENRICH_LIMIT,
     BRIEFING_MAX_SESSIONS,
     build_briefing,
     build_briefing_llm_messages,
@@ -693,90 +692,27 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_json({"error": "project required"}, status=400)
         return self.send_json({"cwd": project, "items": scan_plan_files(project)})
 
-    def _build_briefing_for_range(self, backend, date_value, project):
-        if date_value:
-            start_ms = parse_date_param(date_value, end=False)
-            end_ms = parse_date_param(date_value, end=True)
-            if start_ms is None or end_ms is None:
-                return None, None, "invalid_date"
-        else:
-            date_value = datetime.now().strftime("%Y-%m-%d")
-            start_ms = parse_date_param(date_value, end=False)
-            end_ms = parse_date_param(date_value, end=True)
-        # Aggregate every session in range: page through the index instead of
-        # taking one window, otherwise the overview silently undercounts.
-        items = []
-        truncated = False
-        offset = 0
-        while True:
-            page = backend.indexer.list_sessions_page(
-                start_ms=start_ms,
-                end_ms=end_ms,
-                limit=DEFAULT_LIMIT,
-                offset=offset,
-                cwd=project,
-            )
-            items.extend(page["items"])
-            if not page["has_more"] or page["next_offset"] is None:
-                break
-            if len(items) >= BRIEFING_MAX_SESSIONS:
-                # Runaway safeguard: stop paging but never pretend the
-                # overview is complete — the flag + note must reach the UI.
-                truncated = True
-                break
-            offset = page["next_offset"]
-        audits = self._collect_briefing_audits(items, backend)
-        briefing = build_briefing(
-            items,
-            audits=audits,
-            date_label=date_value,
-            source=str(getattr(backend, "source", "") or ""),
-        )
-        markdown = render_briefing_markdown(briefing)
-        if truncated:
-            briefing["truncated"] = True
-            briefing["session_limit"] = BRIEFING_MAX_SESSIONS
-            markdown += (
-                f"\n\n> ⚠️ Note: this day has more than the {BRIEFING_MAX_SESSIONS}-session "
-                f"safety cap. Totals cover the {len(items)} newest indexed sessions only — "
-                "older sessions in the day are not included."
-            )
-        return briefing, markdown, None
-
-    def _collect_briefing_audits(self, items, backend):
-        builder = getattr(backend.indexer, "build_session_audit", None)
-        if builder is None:
-            return {}
-        ranked = sorted(
-            items,
-            key=lambda it: int(it.get("value_score") or 0),
-            reverse=True,
-        )[:BRIEFING_AUDIT_ENRICH_LIMIT]
-        getter = getattr(backend.indexer, "get_stored_ai_audit", None)
-        audits = {}
-        for item in ranked:
-            sid = str(item.get("id") or "")
-            if not sid:
-                continue
-            try:
-                audit = builder(sid)
-            except Exception:
-                audit = None
-            if audit is None:
-                continue
-            bundle = {"audit": audit}
-            if getter:
-                bundle["ai_audit"] = getter(sid) or {}
-            audits[sid] = bundle
-        return audits
+    def _build_briefing_for_range(self, backend, date_value, project, timezone_value="UTC"):
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+        from history_core.web_briefing import build_window_briefing
+        try:
+            zone = ZoneInfo(timezone_value)
+            date_value = date_value or datetime.now(zone).strftime("%Y-%m-%d")
+            briefing = build_window_briefing(backend, date_value, timezone_value, project,
+                                              limit=BRIEFING_MAX_SESSIONS)
+        except (ValueError, ZoneInfoNotFoundError) as exc:
+            return None, None, "index_revision_changed" if "revision" in str(exc) else "invalid_date_or_timezone"
+        except (OSError, sqlite3.Error):
+            return None, None, "briefing_query_failed"
+        return briefing, render_briefing_markdown(briefing), None
 
     def handle_briefing_get(self, parsed, backend):
         params = parse_qs(parsed.query)
         date_value = params.get("date", [""])[0].strip()
         project = params.get("project", [""])[0].strip() or None
-        briefing, markdown, error = self._build_briefing_for_range(backend, date_value, project)
+        briefing, markdown, error = self._build_briefing_for_range(backend, date_value, project, params.get("timezone", ["UTC"])[0])
         if error:
-            return self.send_json({"error": error}, status=400)
+            return self.send_json({"error": error}, status={"index_revision_changed": 409, "briefing_query_failed": 503}.get(error, 400))
         return self.send_json({
             "briefing": briefing,
             "markdown": markdown,
@@ -786,9 +722,9 @@ class Handler(SimpleHTTPRequestHandler):
     def handle_briefing_generate(self, data, backend):
         date_value = str(data.get("date") or "").strip()
         project = str(data.get("project") or "").strip() or None
-        briefing, markdown, error = self._build_briefing_for_range(backend, date_value, project)
+        briefing, markdown, error = self._build_briefing_for_range(backend, date_value, project, str(data.get("timezone") or "UTC"))
         if error:
-            return self.send_json({"error": error}, status=400)
+            return self.send_json({"error": error}, status={"index_revision_changed": 409, "briefing_query_failed": 503}.get(error, 400))
         mode = str(data.get("mode") or "auto").strip().lower()
         config = self._audit_llm_config()
         if mode == "llm" and not config:

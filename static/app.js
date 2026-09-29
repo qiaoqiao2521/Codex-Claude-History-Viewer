@@ -2919,7 +2919,38 @@ function toggleUsagePanel() {
   if (usagePanelOpen && !currentUsage && !usageLoading) fetchUsagePanel();
 }
 
+function briefingTimezone() {
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; }
+  catch { return "UTC"; }
+}
+
+function localBriefingDate() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+
+function buildWindowBriefingHtml(briefing) {
+  const coverage = briefing.coverage || {};
+  const notice = `<p role="status">${escapeHtml(briefing.date)} · ${escapeHtml(briefing.timezone)} · ${escapeHtml(briefing.source)}<br>缓存新鲜度未知；历史报告不代表当前验收结果。</p>`;
+  if (!coverage.supported || coverage.reason === "source_unavailable") return notice + '<p>当前来源不支持日活动或暂不可读，不能据此判断没有工作。</p>';
+  const rows = (briefing.items || []).map(item => {
+    const evidence = (item.evidence || []).map(ev => {
+      const params = new URLSearchParams({system: ev.system, source: ev.source, session: ev.session_id,
+        store_id: ev.store_id, source_revision: ev.source_revision, message: String(ev.message_index)});
+      const kind = ev.role === "user" ? "用户请求" : ev.role === "tool" ? "工具记录" : "助手报告";
+      return `<li><a href="/history?${escapeHtml(params.toString())}">${kind} · 消息 ${fmtInt(ev.message_index)}</a><p>${escapeHtml(ev.text)}${ev.text_truncated ? "（正文截断）" : ""}</p></li>`;
+    }).join("");
+    return `<details class="briefing-item"><summary>会话 ${escapeHtml(item.session_id)} · ${fmtInt(item.message_count)} 条窗内记录</summary><p class="muted">项目（会话背景）：${escapeHtml(item.project || "未绑定")}</p>${item.evidence_truncated ? '<p>仅展示最近六条窗内消息，完整记录请打开原文。</p>' : ''}<ul>${evidence}</ul></details>`;
+  }).join("");
+  return notice + (briefing.truncated ? '<p role="status">候选超过上限，仅展示部分会话。</p>' : '')
+    + `<p>${fmtInt(briefing.overview?.session_count)} 个会话 · ${fmtInt(briefing.overview?.message_count)} 条窗内记录</p>`
+    + (coverage.messages_without_verified_time ? '<p>部分记录缺少可确认的时间，未计入。</p>' : '')
+    + (coverage.unparsed_records ? '<p>存在未解析记录，覆盖不完整。</p>' : '')
+    + (rows || '<p>当前缓存没有可确认的窗内活动；这不表示当天没有工作。</p>');
+}
+
 function buildBriefingHtml(briefing) {
+  if (briefing?.schema_version === "history.web-briefing.v2") return buildWindowBriefingHtml(briefing);
   const overview = briefing?.overview || {};
   if (!overview.session_count) {
     return `<div class="insight-empty muted">No sessions recorded on ${escapeHtml(briefing?.date || "this date")} for this source.</div>`;
@@ -2987,7 +3018,7 @@ function renderBriefingPanel() {
 async function fetchBriefingPanel() {
   if (!briefingContentEl) return;
   const seq = (briefingFetchSeq += 1);
-  const params = new URLSearchParams();
+  const params = new URLSearchParams({timezone: briefingTimezone()});
   const date = normalizeDateInput(briefingDateEl?.value);
   if (date) params.set("date", date);
   briefingLoading = true;
@@ -3028,7 +3059,7 @@ function toggleBriefingPanel() {
   }
   if (briefingPanelOpen && !currentBriefing && !briefingLoading) {
     if (briefingDateEl && !briefingDateEl.value) {
-      briefingDateEl.value = new Date().toISOString().slice(0, 10);
+      briefingDateEl.value = localBriefingDate();
     }
     fetchBriefingPanel();
   }
@@ -3047,6 +3078,7 @@ async function generateBriefingNarrative() {
     const payload = {
       mode: "auto",
       date: requestedDate,
+      timezone: briefingTimezone(),
     };
     const res = await fetch(`${apiBase()}/briefing`, {
       method: "POST",

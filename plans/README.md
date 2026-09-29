@@ -22,3 +22,5 @@
 - 已交付实现：[Insight review](review-insight-upgrade/task_plan.md)、[native OpenCode command](native-opencode-resume/task_plan.md)。
 - 历史：[SpecMesh adoption](specmesh-adoption/task_plan.md)、[v1.0.0](release-v1.0.0/task_plan.md)。
 - 本地 harness/device 记录和无关 migration notes 原样保留，不定义本计划范围。
+
+- [web-briefing-window](web-briefing-window/task_plan.md)：网页日简报改用消息日期/时区窗口，移除跨日审计与累计用量污染。

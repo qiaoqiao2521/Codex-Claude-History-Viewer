@@ -213,6 +213,21 @@ def build_briefing(
 
 def render_briefing_markdown(briefing: Dict[str, Any]) -> str:
     overview = briefing.get("overview") or {}
+    if briefing.get("schema_version") == "history.web-briefing.v2":
+        lines = [f"# 日活动 — {briefing['date']} ({briefing['timezone']})", "",
+                 f"来源：{briefing['source']}；Sessions: {briefing['overview']['session_count']}",
+                 "缓存范围未知；未支持、失败或空缓存不表示没有工作。", briefing['interpretation']]
+        if briefing['truncated']:
+            lines.append("候选超过上限，以下仅覆盖部分会话。")
+        for item in briefing['items']:
+            lines += ["", f"## 会话 {item['session_id']}", f"窗内记录：{item['message_count']}；项目（背景）：{item['project']}"]
+            if item['evidence_truncated']:
+                lines.append("仅展示最近六条窗内消息，完整对话请回源。")
+            for ev in item['evidence']:
+                lines += [f"- {ev['role']} · 消息 {ev['message_index']} · {ev['source_revision']}: {ev['text']}"]
+                if ev['text_truncated']:
+                    lines.append("  （正文已截断）")
+        return "\n".join(lines)
     lines = [
         f"# Agent work briefing — {briefing.get('date') or '(date)'}"
         + (f" ({briefing['source']})" if briefing.get("source") else ""),
@@ -294,9 +309,16 @@ _BRIEFING_LLM_SYSTEM_PROMPT = (
 
 
 def build_briefing_llm_messages(briefing: Dict[str, Any]) -> List[Dict[str, str]]:
+    prompt = _BRIEFING_LLM_SYSTEM_PROMPT
+    if briefing.get("schema_version") == "history.web-briefing.v2":
+        prompt = ('Return JSON with narrative (a short coverage explanation) and suggestions (an empty array). '
+                  'The payload contains only activity counts and coverage, not outcomes. Do not infer '
+                  'completion, importance, productivity, blockers, or new tasks from counts. Explain uncertainty.')
+        # Optional external narration sees counts/coverage only, not message excerpts.
+        briefing = {k: briefing[k] for k in ("date", "timezone", "overview", "coverage", "interpretation")}
     payload_str = json.dumps(briefing, ensure_ascii=False, indent=2)
     return [
-        {"role": "system", "content": _BRIEFING_LLM_SYSTEM_PROMPT},
+        {"role": "system", "content": prompt},
         {"role": "user", "content": f"Daily briefing payload:\n\n{payload_str}"},
     ]
 
@@ -335,6 +357,11 @@ def parse_briefing_llm_response(raw: str, model: Optional[str] = None) -> Dict[s
 
 def generate_heuristic_briefing_narrative(briefing: Dict[str, Any]) -> Dict[str, Any]:
     """Zero-config fallback narrative composed from the deterministic overview."""
+    if briefing.get("schema_version") == "history.web-briefing.v2":
+        overview = briefing["overview"]
+        unavailable = briefing["coverage"].get("reason") in ("unsupported", "source_unavailable")
+        text = "当前来源无法提供日活动，不能据此判断没有工作。" if unavailable else f"{briefing['date']}（{briefing['timezone']}）的缓存中找到 {overview['session_count']} 个会话、{overview['message_count']} 条窗内记录。请查看公开消息核对实际进展；缓存不保证覆盖最新工作。"
+        return {"narrative": text, "suggestions": [], "model": None, "source": "heuristic"}
     overview = briefing.get("overview") or {}
     outcomes = overview.get("outcomes") or {}
     completed = outcomes.get("completed", 0) + outcomes.get("partially_completed", 0)

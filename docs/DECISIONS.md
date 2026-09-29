@@ -201,3 +201,7 @@ Reuse the existing storage/parsers and keep SpecMesh independently callable. Do 
 用户要求在 TraceMesh 基础上加 Agent 词缀，决定产品名为 **AgentTraceMesh**，专注本地 Agent 对话记录。README 与两个页面显示新名，明确原名 Codex & Claude History Viewer，区别于 OpsPAI/TraceMesh；不宣称名称全球唯一或完成商标检索。仓库路径、cchv 命令、数据目录、偏好键作为兼容标识保留，不再列作命名待决事项。
 
 conversation-reading 随本提交收口，选择“暂存待 U1”，不发 1.3.0-rc.4，不删除功能、不替换已安装候选。U1 保持用户安排的独立 Linux 用户试用；收到试用反馈后另行决定发行，未发生的用户验收不记通过。检索修复/补证与阅读实现按两笔独立提交保存，其他工作树任务保留且已有外部完整备份。
+
+## 2026-09-29 — Web Briefing uses message windows
+
+Date-specific Web review uses verified public message timestamps and an explicit IANA timezone, not session creation dates or whole-session scores. Bounded evidence is traceable, with unknown freshness and truncation disclosed. CLI activity remains the refresh/pagination/full-text route. This does not change standalone audit scoring.

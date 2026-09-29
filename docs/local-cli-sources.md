@@ -35,3 +35,7 @@ A displayed resume command never executes the provider. CodeBuddy uses `cbc --re
 Usage is provider-reported historical accounting, not a cost estimate. CodeBuddy, Gemini and ZCode input already includes cached tokens. No verified counters means unknown accounting (legacy usage totals may display zero); it does not mean a free session. Copilot counters are intentionally not inferred from shutdown telemetry; AGY/Antigravity token accounting remains unsupported.
 
 Installed configuration/orchestration wrappers such as TeamAI and CM are not additional native provider histories. CLI names sharing a store are grouped. The dated local inventory and format exceptions are in [the source plan](../plans/local-cli-sources/findings.md).
+
+## mcode v2（无头来源）
+
+MiniMax Code 0.5.5 的 `~/.minimax/v2/sessions` 已作为 `mcode` 注册到公共 reader。固定 manifest/messages 文件、公开块与工具关联，来源只读；不假定旧 `~/.minimax/sessions` 包含 v2。Web 自动发现本轮未扩展。使用 [activity 时间窗入口](daily-activity.md)；旧单来源 `--source mcode --source-path ... --data-dir ... refresh/search` 也可用。

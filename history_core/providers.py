@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 
-FILE_SOURCES = ('codex', 'claude', 'openclaw', 'codebuddy', 'gemini', 'pi', 'copilot', 'prime')
+FILE_SOURCES = ('codex', 'claude', 'openclaw', 'codebuddy', 'gemini', 'pi', 'copilot', 'prime', 'mcode')
 NATIVE_SOURCES = ('opencode', 'hermes', 'zcode', 'agy', 'antigravity')
 SOURCES = FILE_SOURCES + NATIVE_SOURCES
 
@@ -16,6 +16,8 @@ def file_suffixes(source):
 
 
 def include_file(source, path):
+    if source == 'mcode':
+        return path.name == 'messages.jsonl'
     if source in ('claude', 'codebuddy'):
         return not path.name.startswith('agent-')
     if source == 'openclaw':
@@ -35,6 +37,9 @@ def parser_for(source):
     from .sources import parse_codex_session_file, parse_claude_session_file, parse_openclaw_session_file
     parsers = {'codex': parse_codex_session_file, 'claude': parse_claude_session_file,
                'openclaw': parse_openclaw_session_file}
+    if source == 'mcode':
+        from .mcode import parse_mcode_session_file
+        return parse_mcode_session_file
     if source == 'codebuddy':
         from .codebuddy import parse_codebuddy_session_file
         return parse_codebuddy_session_file
