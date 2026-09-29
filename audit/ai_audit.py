@@ -344,5 +344,5 @@ def _wrap_audit(
 def meets_cost_guard(value_score: int, threshold: int = VALUE_SCORE_THRESHOLD) -> Tuple[bool, str]:
     """Return (ok, reason). reason is empty when ok."""
     if int(value_score) < int(threshold):
-        return False, f"value_score {value_score} below threshold {threshold} — not worth auditing."
+        return False, f"value_score {value_score} below threshold {threshold} — external model call skipped by cost policy; local heuristic review remains available."
     return True, ""

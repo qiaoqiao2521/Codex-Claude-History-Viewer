@@ -205,3 +205,7 @@ conversation-reading 随本提交收口，选择“暂存待 U1”，不发 1.3.
 ## 2026-09-29 — Web Briefing uses message windows
 
 Date-specific Web review uses verified public message timestamps and an explicit IANA timezone, not session creation dates or whole-session scores. Bounded evidence is traceable, with unknown freshness and truncation disclosed. CLI activity remains the refresh/pagination/full-text route. This does not change standalone audit scoring.
+
+## 2026-09-29 — Separate operation signals from review value
+
+Keep the legacy value_score field and formula for compatibility, but describe it as an operation-record signal, not delivery or importance. Heuristic review is always available regardless of score; auto uses it when the external-call cost policy blocks a model call. Explicit llm mode retains the configured cost gate. Current project indexes point to accepted/current records rather than carrying stale next-step lists.

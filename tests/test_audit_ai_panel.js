@@ -319,7 +319,8 @@ async function testUpdateButtonsLowValueWarns() {
   api.setCurrentAiAudit(null);
   api.setCurrentAudit({ value_score: 5 });
   api.updateAiAuditButtons();
-  assert.match(api.getAuditGenerateBtn().title, /low/i, "title warns when value < 20");
+  assert.match(api.getAuditGenerateBtn().title, /本地启发式分析/);
+  assert.doesNotMatch(api.getAuditGenerateBtn().title, /refused|not worth/i);
 }
 
 async function testUpdateButtonsHighValueNoWarning() {

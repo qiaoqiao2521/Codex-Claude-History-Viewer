@@ -1574,7 +1574,7 @@ function renderSessionBadges(session) {
   const icon = OUTCOME_ICONS[outcome] || "?";
   chips.push(`<span class="audit-badge badge-outcome outcome-${escapeHtml(outcome)}" title="Outcome: ${escapeHtml(outcome)}">${icon}</span>`);
   const value = Number(session?.value_score || 0);
-  chips.push(`<span class="audit-badge badge-value" title="Value score (0-100)">\u25C6 ${value}</span>`);
+  chips.push(`<span class="audit-badge badge-value" title="操作记录信号（0–100），不代表成果价值">\u25C6 ${value}</span>`);
   if (chips.length === 0) return "";
   return `<div class="audit-badges">${chips.join("")}</div>`;
 }
@@ -2644,10 +2644,8 @@ function _auditSectionFriction(audit) {
 function _auditSectionValue(audit) {
   const score = Number(audit.value_score) || 0;
   const tier = score >= 70 ? "high" : score >= 30 ? "medium" : "low";
-  const interpretation = score >= 70 ? "Strong signal: meaningful work shipped."
-    : score >= 30 ? "Mixed signal: some progress, but limited payoff."
-    : "Low signal: little demonstrable value captured.";
-  return _auditSection("Value", "\u{1F48E}", `<div class="audit-value"><span class="audit-badge badge-value">\u25C6 ${score}</span><span class="audit-value-tier audit-value-${tier}">${escapeHtml(tier)}</span></div><div class="audit-value-note muted">${escapeHtml(interpretation)}</div>`);
+  const interpretation = "操作记录信号（0–100）：编辑、命令等记录的启发式汇总，不代表成果重要性、用户收益或已验证交付。低分也可能包含有价值的判断。";
+  return _auditSection("操作记录信号", "\u{1F48E}", `<div class="audit-value"><span class="audit-badge badge-value">\u25C6 ${score}</span><span class="audit-value-tier audit-value-${tier}">${escapeHtml(tier)}</span></div><div class="audit-value-note muted">${escapeHtml(interpretation)}</div>`);
 }
 
 async function fetchAuditPanel(sessionId) {
@@ -2740,10 +2738,7 @@ function updateAiAuditButtons() {
   } else {
     auditGenerateBtn.hidden = false;
     auditDeleteBtn.hidden = true;
-    const valueScore = Number(currentAudit?.value_score) || 0;
-    auditGenerateBtn.title = valueScore < 20
-      ? `Value ${valueScore} is low — generation may be refused by cost guard.`
-      : "Generate an AI audit judgment for this session.";
+    auditGenerateBtn.title = "生成复盘；未配置模型或未达到外呼成本门槛时使用本地启发式分析。操作分不代表成果价值。";
   }
 }
 

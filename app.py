@@ -794,17 +794,20 @@ class Handler(SimpleHTTPRequestHandler):
         audit = builder(session_id)
         if audit is None:
             return self.send_json({"error": "audit_unavailable"}, status=404)
-        threshold = int((self._audit_config or {}).get("value_threshold") or VALUE_SCORE_THRESHOLD)
-        ok, reason = meets_cost_guard(int(audit.get("value_score") or 0), threshold)
-        if not ok:
-            return self.send_json({"error": "below_cost_guard", "detail": reason}, status=400)
         mode = str(data.get("mode") or "auto").strip().lower()
         llm_input = {k: audit.get(k) for k in LLM_AUDIT_INPUT_FIELDS}
         config = self._audit_llm_config()
         if mode == "llm" and not config:
             return self.send_json({"error": "no_llm_configured", "detail": "Configure --audit-llm-base-url/model or set OPENAI_API_KEY."}, status=400)
         result = None
-        if mode in ("llm", "auto") and config:
+        use_llm = mode in ("llm", "auto") and bool(config)
+        if use_llm:
+            threshold = int((self._audit_config or {}).get("value_threshold") or VALUE_SCORE_THRESHOLD)
+            ok, reason = meets_cost_guard(int(audit.get("value_score") or 0), threshold)
+            if not ok and mode == "llm":
+                return self.send_json({"error": "below_cost_guard", "detail": reason}, status=400)
+            use_llm = ok
+        if use_llm:
             try:
                 messages = build_llm_messages(llm_input)
                 raw = call_chat_completions(config, messages)

@@ -232,7 +232,7 @@ async function testRenderAuditPanelHasAllSixSections() {
   });
   api.renderAuditPanel(audit);
   const html = api.getAuditPanelElement().innerHTML;
-  const requiredSections = ["Intent", "Outcome", "Deliverables", "Command intents", "Friction", "Value"];
+  const requiredSections = ["Intent", "Outcome", "Deliverables", "Command intents", "Friction", "操作记录信号"];
   requiredSections.forEach((title) => {
     assert.ok(html.indexOf(title) >= 0, `panel must include ${title} section`);
   });
@@ -342,6 +342,11 @@ async function testValueTierThresholds() {
   assert.ok(high.indexOf("audit-value-high") >= 0, "score>=70 -> high tier");
   const med = api.auditSectionValue(sampleAudit({ value_score: 50 }));
   assert.ok(med.indexOf("audit-value-medium") >= 0, "30<=score<70 -> medium tier");
+  for (const score of [0, 72, 100]) {
+    const html = api.auditSectionValue(sampleAudit({value_score:score}));
+    assert.match(html, /不代表成果重要性/);
+    assert.doesNotMatch(html, /meaningful work shipped|little demonstrable value|limited payoff/);
+  }
   const low = api.auditSectionValue(sampleAudit({ value_score: 5 }));
   assert.ok(low.indexOf("audit-value-low") >= 0, "score<30 -> low tier");
 }

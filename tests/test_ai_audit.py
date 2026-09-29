@@ -320,3 +320,48 @@ class ToLlmAuditInputTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AuditGenerationPolicyTests(unittest.TestCase):
+    def run_request(self, mode, score=0, config=None, threshold=20):
+        from types import SimpleNamespace
+        from unittest.mock import Mock, patch
+        audit = _sample_llm_input(value_score=score)
+        indexer = SimpleNamespace(build_session_audit=lambda sid:audit, store_ai_audit=Mock())
+        handler = object.__new__(app.Handler)
+        handler._audit_config = {'value_threshold':threshold}
+        handler._audit_llm_config = lambda:config
+        handler.send_json = lambda data,status=200:(status,data)
+        with patch('app.call_chat_completions', return_value='mock') as call, patch('app.parse_llm_json_response', return_value={'source':'llm'}) as parse:
+            status,data=handler.handle_audit_generate('decision',{'mode':mode},SimpleNamespace(indexer=indexer))
+        return status,data,call,indexer.store_ai_audit
+
+    def test_zero_operation_local_review_with_or_without_llm_config(self):
+        for config in (None, {'model':'test'}):
+            status,data,call,store=self.run_request('heuristic',config=config)
+            self.assertEqual(status,200);self.assertEqual(data['ai_audit']['source'],'heuristic')
+            call.assert_not_called();store.assert_called_once()
+
+    def test_auto_low_signal_falls_back_without_external_call(self):
+        for config in (None, {'model':'test'}):
+            status,data,call,store=self.run_request('auto',config=config)
+            self.assertEqual(status,200);self.assertEqual(data['ai_audit']['source'],'heuristic')
+            call.assert_not_called();store.assert_called_once()
+
+    def test_explicit_llm_keeps_cost_gate_and_does_not_persist(self):
+        status,data,call,store=self.run_request('llm',config={'model':'test'})
+        self.assertEqual(status,400);self.assertEqual(data['error'],'below_cost_guard')
+        self.assertNotIn('not worth',data['detail']);self.assertIn('local heuristic',data['detail'])
+        call.assert_not_called();store.assert_not_called()
+
+    def test_explicit_llm_without_config_reports_configuration(self):
+        status,data,call,store=self.run_request('llm')
+        self.assertEqual(data['error'],'no_llm_configured');call.assert_not_called()
+
+    def test_configured_threshold_applies_only_to_external_calls(self):
+        for mode in ('auto','llm'):
+            status,data,call,store=self.run_request(mode,score=40,threshold=40,config={'model':'test'})
+            self.assertEqual(status,200);self.assertEqual(data['ai_audit']['source'],'llm')
+            call.assert_called_once();store.assert_called_once()
+        status,data,call,store=self.run_request('auto',score=39,threshold=40,config={'model':'test'})
+        self.assertEqual(data['ai_audit']['source'],'heuristic');call.assert_not_called()
