@@ -54,6 +54,8 @@ Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56e
 
 - Local CLI source expansion → [plans/local-cli-sources/](plans/local-cli-sources/)
 - Current product candidate and pending U1 → [plans/history-reuse-product/](plans/history-reuse-product/)
+- Development experience lookup and closeout → [AGENTS.md](AGENTS.md), using the locally configured Obsidian question index. History remains the source-evidence reader; this convention does not change runtime export destinations or automatically publish transcript content.
+
 - Completed Linux delivery plan → [plans/bounded-delivery/](plans/bounded-delivery/)
 - Earlier Agent handoff implementation and partial evidence → [plans/agent-handoff-service/](plans/agent-handoff-service/)
 - Dated release alignment → [plans/release-alignment/](plans/release-alignment/)
