@@ -25,7 +25,6 @@ from .sources import (Indexer, _claude_format_tool_result, _claude_format_tool_u
 MAX_SESSION_BYTES = 64 * 1024 * 1024
 MAX_SESSION_STEPS = 20000
 MAX_STORE_SESSIONS = 10000
-MAX_STORE_BYTES = 256 * 1024 * 1024
 MAX_AUDIT_BYTES = 2 * 1024 * 1024
 _ID = re.compile(r'^[A-Za-z0-9_-]{1,128}$')
 
@@ -312,7 +311,10 @@ class AgyIndexer(Indexer):
         revision = self.source_revision()
         if revision == self._revision:
             return
-        store_budget = _ReadBudget(MAX_STORE_BYTES)
+        # Bound this snapshot to the observed summary size, not an arbitrary
+        # cumulative store cap. Each conversation is copied and cleaned alone.
+        summary_bytes = sum(path.stat().st_size for path in _database_paths(self.db_path) if path.exists())
+        store_budget = _ReadBudget(summary_bytes)
         source = _read_only(self.db_path, budget=store_budget)
         try:
             if source.execute('SELECT COUNT(*) FROM conversation_summaries').fetchone()[0] > MAX_STORE_SESSIONS:
@@ -322,7 +324,6 @@ class AgyIndexer(Indexer):
         finally:
             source.close()
         coverage = {}
-        total_bytes = store_budget.limit - store_budget.remaining
         with self.lock, self.conn:
             self.conn.execute('DELETE FROM messages')
             self.conn.execute('DELETE FROM sessions')
@@ -333,8 +334,7 @@ class AgyIndexer(Indexer):
                 path = self.root / 'conversations' / (sid + '.db')
                 if not path.exists() and path.with_suffix('.pb').exists():
                     path = path.with_suffix('.pb')
-                data = read_agy_session(path, summary=dict(row), max_bytes=min(MAX_SESSION_BYTES, MAX_STORE_BYTES - total_bytes))
-                total_bytes += data['source_bytes']
+                data = read_agy_session(path, summary=dict(row), max_bytes=MAX_SESSION_BYTES)
                 coverage[sid] = {key: data[key] for key in ('content_status', 'unsupported_steps', 'usage_status')}
                 self.conn.execute('INSERT INTO sessions(id,file_path,start_ts_ms,end_ts_ms,cwd,title,message_count,search_blob,pinned) '
                                   'VALUES(?,?,?,?,?,?,?,?,0)', (sid, str(path), data['start_ts_ms'], data['end_ts_ms'], data['cwd'],

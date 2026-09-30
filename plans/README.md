@@ -1,5 +1,7 @@
 # Work index
 
+- **已完成：AGY 整库累计上限修复**：[计划](agy-store-cap/task_plan.md) / [验证](agy-store-cap/progress.md)。不再因整库超过 256 MiB 拒绝初始化，保留逐会话限制和不完整覆盖披露。
+
 当前执行方向以此索引和 PROJECT 为准；旧计划保存有日期的证据，不竞争当前优先级。
 
 - **验收交接**：[model-review-handoff](model-review-handoff/task_plan.md)：原需求与实现证据交给高级模型，对照当前代码逐项验收；不自动判完成或调模型。

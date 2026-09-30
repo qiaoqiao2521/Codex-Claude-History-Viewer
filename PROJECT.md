@@ -57,6 +57,8 @@ Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56e
 
 ## Knowledge Map
 
+- AGY 累计 256 MiB 限制已取消，真实全库检索验证 → [agy-store-cap](plans/agy-store-cap/task_plan.md)
+
 - CBC/AGY/mcode/ZCode support original-request selection and revision-bound model-review handoff on supported bounded recordings; mcode also joins Linux Web discovery. No provider execution.
 - Implementation-to-review model handoff → [usage](docs/model-review-handoff.md), [plan](plans/model-review-handoff/task_plan.md)
 

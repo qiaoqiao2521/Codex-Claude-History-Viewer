@@ -174,6 +174,36 @@ class AgyTests(unittest.TestCase):
         self.assertIn('committed WAL message', reader.get_session_message('synthetic', 0)['text'])
         self.assertEqual(before, self.fingerprints())
 
+    def test_store_over_256_mib_indexes_late_small_session_and_refreshes(self):
+        # SQLite permits unused trailing pages: large physical snapshots without
+        # inventing hundreds of MiB of public messages or private transcript data.
+        for number in range(5):
+            path = self.write([(14, 3, 0, step(14, blob(1, 'early message')))],
+                              sid='a-large-%d' % number)
+            with path.open('r+b') as stream:
+                stream.truncate(54 * 1024 * 1024)
+        target = self.write([(14, 3, 0, step(14, blob(1, 'late-orchestration-proof')))],
+                            sid='z-target', title='Synthetic orchestration')
+        self.assertGreater(sum(p.stat().st_size for p in self.root.rglob('*.db')),
+                           256 * 1024 * 1024)
+        before = self.fingerprints()
+        reader = self.reader()
+        from history_core.reuse import search
+        result = search([('linux', 'agy', reader)], query='late-orchestration-proof')
+        self.assertEqual([row['id'] for row in result['items']], ['z-target'])
+        self.assertEqual(reader.coverage()['total_sessions'], 6)
+        self.assertEqual(reader.get_session_message('z-target', 0)['text'], 'late-orchestration-proof')
+        self.assertEqual(before, self.fingerprints())
+        with sqlite3.connect(target) as db:
+            db.execute('UPDATE steps SET step_payload=?',
+                       (step(14, blob(1, 'late-refreshed-proof')),))
+        after_edit = self.fingerprints()
+        reader.scan_sessions()
+        result = search([('linux', 'agy', reader)], query='late-refreshed-proof')
+        self.assertEqual([row['id'] for row in result['items']], ['z-target'])
+        self.assertEqual(reader.coverage()['decoded_text_sessions'], 6)
+        self.assertEqual(after_edit, self.fingerprints())
+
     def test_source_and_audit_limits_reject_without_silent_truncation(self):
         path = self.write([(14, 3, 0, step(14, blob(1, 'bounded data')))])
         with self.assertRaisesRegex(ValueError, 'source_limit_exceeded'):
