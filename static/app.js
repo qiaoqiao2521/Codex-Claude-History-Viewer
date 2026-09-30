@@ -148,7 +148,7 @@ let availableSourcesBySystem = new Map([
   ["linux", ["codex", "claude", "openclaw", "opencode"]],
 ]);
 const SYSTEM_ORDER = ["windows", "wsl", "linux"];
-const SOURCE_ORDER = ["codex", "claude", "openclaw", "opencode", "codebuddy", "gemini", "pi", "zcode", "copilot", "prime", "agy", "antigravity", "hermes"];
+const SOURCE_ORDER = ["codex", "claude", "openclaw", "opencode", "codebuddy", "gemini", "pi", "zcode", "copilot", "prime", "agy", "mcode", "antigravity", "hermes"];
 const LIST_RELOAD_DEBOUNCE_MS = 200;
 const SESSION_SEARCH_DEBOUNCE_MS = 220;
 const MESSAGE_RENDER_PAGE_SIZE = 200;
@@ -451,6 +451,7 @@ function getSourceLabel(source = currentSource) {
   if (source === "copilot") return "GitHub Copilot";
   if (source === "zcode") return "ZCode";
   if (source === "agy") return "AGY CLI";
+  if (source === "mcode") return "MiniMax Code (mcode)";
   if (source === "antigravity") return "Antigravity";
   return source === "codex" ? "Codex" : source;
 }

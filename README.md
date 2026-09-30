@@ -2,7 +2,11 @@
 
 Formerly **Codex & Claude History Viewer**. AgentTraceMesh focuses on local Agent conversation records: find conversations, trace original evidence, and carry useful context into the next task. It is independent of [OpsPAI/TraceMesh](https://github.com/OpsPAI/TraceMesh). Existing `cchv` commands, repository paths, data directories and preference keys remain compatible.
 
-Conversation-reading is **committed and held for U1 user trial**; this checkpoint does not publish `1.3.0-rc.4` or replace the installed candidate.
+**Agent integration comes first:** retrieve work evidence, recover original requirements and later corrections, then hand selected context to an Agent for independent code review. The independent human trial (U1/M3) was cancelled by the user on 2026-10-01; it is no longer a release gate. Web reading and export previews remain available.
+
+**先实现，再独立验收。** 可以先用一般/低价模型完成主要代码，再用 AgentTraceMesh 找回你的需求原文、后续纠正和实现线索，交给高级模型在当前仓库逐项审查、提出必要优化。减少换模型时重讲背景的负担，让验收有原始需求可查。
+
+点击 **准备验收交接** → 搜索并选择用户完整消息及相关证据 → 预览、复制验收包 → 交给高级模型。CBC、AGY、mcode 和 ZCode 均可在支持的本地记录范围内选择原始需求与后续修订。验收包附带逐项核对提示词；AgentTraceMesh 不自动调用模型或判定完成。历史“测试通过”仍需结合当前代码核对。[使用步骤与边界](docs/model-review-handoff.md)
 
 Local-first, dependency-free web viewer for **Codex CLI**, **Claude Code**, **CodeBuddy (cbc)**, **Gemini CLI**, **pi / Prime Agent**, **GitHub Copilot**, **ZCode**, **AGY CLI / Antigravity**, **OpenCode**, **OpenClaw**, and **Hermes** session history. Format-specific limits are shown explicitly.
 
@@ -12,6 +16,7 @@ Local-first, dependency-free web viewer for **Codex CLI**, **Claude Code**, **Co
 - Search across sources by keyword, project and date; open matching messages with revision checks
 - Follow cross-source project/file history, inspect recorded patches and retain earlier failures
 - Select up to 5 evidence fragments for a revision-bound, masked Markdown/JSON handoff
+- Prepare a requirements-first review handoff for another model, keeping original user requests separate from historical completion claims
 - Inspect local source status and preview a sanitized diagnostic export
 - Filter messages by role, and search within a session (highlight + next/prev)
 - Sort sidebar by **start time**, **last activity**, or **value signal**
@@ -42,7 +47,7 @@ Codex CLI and Claude Code both generate local, machine-readable transcripts (JSO
 - compare sessions across days/projects
 - keep everything **local** (no uploads by default)
 
-Current checkout: **1.3.0-rc.3 candidate** with [project-first reading and settings](plans/project-reader-ux/progress.md). [Local CLI source expansion](plans/local-cli-sources/progress.md) remains included. Earlier reuse acceptance and U1 status: [history reuse plan](plans/history-reuse-product/progress.md). Independent Linux user trial is pending; stable v1.2.0 remains available.
+Current checkout: **1.3.0-rc.3 candidate** with [project-first reading and settings](plans/project-reader-ux/progress.md). [Local CLI source expansion](plans/local-cli-sources/progress.md) remains included. Reuse engineering acceptance and current Agent-first policy: [history reuse plan](plans/history-reuse-product/progress.md). No independent human trial is pending; its cancellation does not claim human usability validation or publish a new release. Stable v1.2.0 remains available.
 
 ## Quick start
 
@@ -247,5 +252,7 @@ is no execution or new authorization in a handoff. Weak-session bulk cleanup is 
 
 This release is validated on **Linux, Python 3.11/3.12**. Windows/WSL compatibility code
 remains present but is not newly certified. See [release validation and rollback](docs/release-v1.2.0.md).
+
+公众号写作素材：从所选证据整理成果卡，预览后下载或导出到本地内容仓，详见[使用说明](docs/materials.md)。
 
 [检索词法与摘录边界](docs/search-semantics.md)：大小写、字面字符、摘录顺序及修订变化说明。

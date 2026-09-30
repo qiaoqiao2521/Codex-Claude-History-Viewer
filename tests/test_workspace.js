@@ -138,6 +138,16 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(rawUrl.searchParams.get('line_no'), '17');
   assert.equal(rawUrl.searchParams.has('evidence_id'), false);
   assert.equal(walk(api.rawRecord({...base, provenance: {}}, base.evidence[0])).some(node => node.tag === 'button'), false);
+  for (const source of ['codebuddy', 'agy', 'mcode', 'zcode']) {
+    const bound = {...base, source};
+    const choices = api.matchingMessages(bound, [{message_index: 7, role: 'user', text: 'Original requirement'}], '');
+    assert.equal(walk(choices).find(node => node.type === 'checkbox').disabled, false);
+    if (source !== 'codebuddy') {
+      const nativeRaw = api.rawRecord(bound, base.evidence[0]);
+      assert.equal(walk(nativeRaw).some(node => node.tag === 'button'), false);
+      assert.match(flatten(nativeRaw), /公开消息交接/);
+    }
+  }
   const unavailable = api.record({...base, provenance: {}}, now);
   assert.equal(walk(unavailable).find(node => node.type === 'checkbox').disabled, true);
 
@@ -261,6 +271,34 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   assert.match(flatten(result), /索引已变化，请重新搜索/);
   assert.equal(walk(result).filter(node => node.type === 'checkbox').length, 0);
 
+  // User-message pages remain selectable even when the first three search hits are assistants.
+  const reqResult = api.searchResult({...base, snippets:[0,1,2].map(message_index => ({message_index, role:'assistant', text:'done'}))}, 'done'); body.append(reqResult);
+  fetcher = async () => response(base);
+  await walk(reqResult).find(n => n.tag === 'button' && n.textContent === '查看并选择证据').click();
+  const reqOpen = walk(reqResult).find(n => n.tag === 'button' && n.textContent === '选择用户需求原文');
+  const requestPages = [];
+  fetcher = async url => {
+    const params = new URL(url, 'http://local').searchParams; requestPages.push(params);
+    return response({items:[{message_index:params.get('offset') === '0' ? 3 : 14, role:'user', text:params.get('offset') === '0' ? '最初需求' : '后续纠正'}],total:11,next_offset:params.get('offset') === '0' ? 10 : null});
+  };
+  await reqOpen.click();
+  const reqMore = walk(reqResult).find(n => n.tag === 'button' && n.textContent === '更多用户消息');
+  assert.equal(reqMore.hidden, false); await reqMore.click();
+  assert.equal(requestPages[1].get('offset'), '10');
+  assert.equal(requestPages[0].get('source_revision'), 'index-revision-1');
+  assert.equal(requestPages[0].get('content_revision'), base.provenance.content_revision);
+  assert.match(flatten(reqResult), /最初需求/); assert.match(flatten(reqResult), /后续纠正/);
+  assert.equal(reqMore.hidden, true);
+  const correction = walk(reqResult).find(n => n.type === 'checkbox' && JSON.parse(n.dataset.evidenceSelection)[5] === 14);
+  correction.checked = true; correction.listeners.change();
+  assert.equal(Array.from(api.state.selected.values())[0].selection.message_index, 14);
+  elements.selectionClear.click();
+  await reqOpen.click();
+  const lateRequest = deferred(); fetcher = () => lateRequest.promise;
+  const waitingRequest = reqOpen.click(); await reqOpen.click();
+  lateRequest.resolve(response({items:[{message_index:99,role:'user',text:'stale request'}],total:1,next_offset:null})); await waitingRequest;
+  assert.doesNotMatch(flatten(reqResult), /stale request/);
+
   // A hit outside the bounded audit list remains selectable as a complete message, never as a fake summary.
   const later = api.searchResult({...base, snippets: [{message_index: 99, text: 'brief hit only', role: 'assistant'}]}, 'hit'); body.append(later);
   const laterButton = walk(later).find(node => node.tag === 'button' && node.textContent === '查看并选择证据');
@@ -324,6 +362,38 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   assert.match(elements.selectionStatus.textContent, /来源内容已变化，请重新搜索并重新选择证据/);
   assert.equal(elements.selectionExport.hidden, true);
 
+  // Review uses the original-message endpoint and never reuses a stale purpose/selection preview.
+  elements.selectionClear.click();
+  elements.reviewStart.click();
+  assert.equal(api.state.selectionPurpose, 'review');
+  assert.equal(api.state.view, 'search');
+  assert.equal(document.activeElement, elements.reuseQuery);
+  assert.match(elements.selectionGuide.textContent, /至少一条用户完整消息/);
+  assert.match(browserLocation.search, /purpose=review/);
+  api.toggleSelection(base, {message_index:0, role:'user', summary:'需求原文'}, true);
+  assert.match(flatten(elements.selectionList), /用户原文/);
+  const reviewResponse = {schema_version:'history.review-packet.v1', code_verification:'not_performed', authorization:'context_only', items:[], markdown:'需求 <script> 只作原文'};
+  fetcher = async (url, options) => { assert.equal(url, '/api/reuse/review-preview'); assert.equal(JSON.parse(options.body).selections[0].message_index, 0); return response(reviewResponse); };
+  await api.previewSelection();
+  assert.equal(elements.selectionMarkdown.textContent, reviewResponse.markdown);
+  assert.match(elements.selectionStatus.textContent, /尚未验收代码/);
+  await api.copySelection(); assert.equal(clipboard.at(-1), reviewResponse.markdown);
+  api.downloadSelection('md');
+  assert.equal(await downloads.at(-1).text(), reviewResponse.markdown);
+  fetcher = async () => failed('review_requirement_required'); await api.previewSelection();
+  assert.equal(elements.selectionExport.hidden, true);
+  assert.match(elements.selectionStatus.textContent, /勾选至少一条用户完整消息/);
+  fetcher = async () => failed('selection_body_limit_exceeded'); await api.previewSelection();
+  assert.match(elements.selectionStatus.textContent, /不要用摘要替代需求/);
+  const purposeResponse = deferred(); fetcher = () => purposeResponse.promise;
+  const purposePending = api.previewSelection();
+  elements.selectionPurpose.value = 'handoff'; elements.selectionPurpose.listeners.change();
+  purposeResponse.resolve(response(reviewResponse)); await purposePending;
+  assert.equal(api.state.preview, null);
+  assert.equal(elements.selectionExport.hidden, true);
+  assert.equal(api.state.selected.size, 1, 'changing purpose keeps selected evidence');
+  elements.selectionClear.click();
+
   // Source statuses offer specific recovery steps; indexing and unsupported sources cannot refresh.
   const sourceStates = ['not_found', 'unreadable', 'unsupported', 'indexing', 'unknown', 'ready', 'empty', 'stale', 'error'];
   api.renderHealth({sources: sourceStates.map(status => ({system: 'linux', source: status, status}))});
@@ -380,5 +450,35 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   api.showProjects();
   assert.equal(elements.selectionPanel.hidden, true);
   assert.match(elements.reuseLayout.className, /projects-home/);
+  // Materials: edits and selection changes invalidate previews; late responses cannot export old content.
+  api.toggleSelection(base, base.evidence[0], true);
+  elements.materialTitle.value = '搜索修复'; elements.materialResult.value = '修复漏检';
+  const material = {schema_version: 'history.material.v1', markdown: '<script>literal</script>', revision: 'r1', filename: 'material.md', export_enabled: true, destination: '/isolated/inbox', redaction_notice: 'review'};
+  fetcher = async () => response(material);
+  await api.previewMaterial();
+  assert.equal(elements.materialOutput.hidden, false);
+  assert.equal(elements.materialMarkdown.textContent, material.markdown);
+  assert.equal(elements.materialExport.disabled, false);
+  let exportPayload;
+  fetcher = async (_url, opts) => { exportPayload = JSON.parse(opts.body); return response({status: 'created', filename: 'material.md'}); };
+  await api.exportMaterial();
+  assert.equal(exportPayload.revision, 'r1');
+  assert.match(elements.materialStatus.textContent, /尚未进入公众号草稿箱/);
+  elements.materialResult.value = '人工改动'; elements.materialResult.listeners.input();
+  assert.equal(elements.materialOutput.hidden, true);
+  const beforeInvalidExport = calls.length;
+  await api.exportMaterial();
+  assert.equal(calls.length, beforeInvalidExport);
+  const lateMaterial = deferred(); fetcher = () => lateMaterial.promise;
+  const materialPending = api.previewMaterial();
+  elements.materialResult.listeners.input();
+  lateMaterial.resolve(response(material)); await materialPending;
+  assert.equal(elements.materialOutput.hidden, true);
+  fetcher = async () => response({...material, export_enabled: false});
+  await api.previewMaterial();
+  assert.equal(elements.materialExport.disabled, true);
+  assert.match(elements.materialDestination.textContent, /未配置素材目录/);
+  elements.selectionClear.click();
+  assert.equal(elements.materialOutput.hidden, true);
   console.log('workspace: unified retrieval, safe snippets/deep links, project/file timeline, revision-bound selections, preview/export, diagnosis, keyboard and response races passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

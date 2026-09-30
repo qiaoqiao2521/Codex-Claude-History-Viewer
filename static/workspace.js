@@ -1,7 +1,7 @@
 const $ = id => document.getElementById(id);
 const listOf = value => Array.isArray(value) ? value : [];
 const state = {
-  view: 'projects', project: null, query: '', selected: new Map(), selectionVersion: 0,
+  view: 'projects', project: null, query: '', selected: new Map(), selectionVersion: 0, selectionPurpose: 'handoff',
   preview: null, diagnostic: null, diagnosticShown: false, healthSequence: 0, selectionSequence: 0,
   pages: Object.fromEntries(['search', 'projects', 'timeline'].map(key => [key, {sequence: 0, items: [], cursor: null, params: {}}])),
 };
@@ -48,6 +48,7 @@ async function request(path, options) {
 }
 function errorAdvice(error, fallback = '请检查来源状态后重试。') {
   const code = String(error?.message || error || 'unknown');
+  if (/review_requirement_required/.test(code)) return '请先搜索原始需求，展开“查看并选择证据”，勾选至少一条用户完整消息；审计摘要和助手回复不能替代需求。';
   if (/index_revision_changed|index_revision_required|cursor.*(?:expired|invalid|changed)|invalid_cursor/.test(code)) return '索引已变化，请重新搜索或重新选择项目，从第一页读取。';
   if (/source_changed|context_revision|revision_mismatch|stale_selection|selection_stale/.test(code)) return '来源内容已变化，请重新搜索并重新选择证据。';
   if (/selection_body_limit_exceeded/.test(code)) return '所选完整消息超出 8000 字符导出上限，未截断导出。请减少选择或改选审计摘要。';
@@ -112,6 +113,10 @@ function observedFailures(item) {
 let rawPanelCounter = 0;
 function rawRecord(item, ref, label = '核对原始记录') {
   const wrapper = text('div', '', 'raw-record');
+  if (['agy', 'antigravity', 'zcode', 'mcode'].includes(item.source)) {
+    wrapper.append(text('p', '此来源提供公开消息交接；请通过“核对完整消息”查看原文。数据库行或混合内部块不作为原始 JSONL 展开。', 'muted'));
+    return wrapper;
+  }
   const line = ref.raw_ref?.line_no ?? ref.line_no;
   const evidenceId = ref.id || ref.evidence_id;
   if (!hasSourceRevision(item) || (!evidenceId && !Number.isInteger(line))) {
@@ -157,6 +162,7 @@ function selectionKey(selection) {
   return JSON.stringify([selection.system, selection.source, selection.store_id || '', selection.session_id, selection.evidence_id, selection.message_index]);
 }
 function invalidatePreview() {
+  invalidateMaterial();
   state.selectionVersion++;
   state.selectionSequence++;
   state.preview = null;
@@ -178,7 +184,7 @@ function toggleSelection(item, ref, checked) {
     return false;
   }
   invalidatePreview();
-  if (checked) state.selected.set(key, {selection, title: item.title || item.goal || item.id, summary: ref.summary || `证据 ${ref.id}`});
+  if (checked) state.selected.set(key, {selection, title: item.title || item.goal || item.id, summary: ref.summary || `证据 ${ref.id}`, role: ref.role});
   else state.selected.delete(key);
   renderSelection();
   return true;
@@ -273,13 +279,13 @@ function record(item, now = Date.now(), activeFile = '') {
   node.append(facts(item, activeFile));
   return node;
 }
-function matchingMessages(item, snippets, query) {
+function matchingMessages(item, snippets, query, heading = '命中消息') {
   const node = text('section', '', 'matched-message-choices');
-  node.append(text('h4', '命中消息'));
+  node.append(text('h4', heading));
   node.append(text('p', '下方展示命中摘录。选择后导出经修订核对的完整消息；合计超过 8000 字符会明确拒绝，不会悄悄截断。', 'muted'));
   for (const snippet of snippets) {
     if (!Number.isInteger(snippet.message_index) || snippet.message_index < 0) continue;
-    const ref = {message_index: snippet.message_index, summary: snippet.text || ''};
+    const ref = {message_index: snippet.message_index, summary: snippet.text || '', role: snippet.role};
     const row = text('div', '', 'evidence-item');
     const label = text('label', '', 'evidence-choice');
     const input = document.createElement('input'); input.type = 'checkbox';
@@ -289,9 +295,48 @@ function matchingMessages(item, snippets, query) {
     input.addEventListener('change', () => toggleSelection(item, ref, input.checked));
     label.append(input, text('span', `完整消息 ${snippet.message_index}${snippet.role ? `（${snippet.role}）` : ''}：${snippet.text || '打开命中原文核对'}`));
     row.append(label, historyLink(item, '核对完整消息', snippet.message_index, query));
-    if (input.disabled) row.append(text('p', '完整消息暂无法绑定到已核对的来源修订，可打开原文核对或选择可用审计摘要。', 'muted'));
+    if (input.disabled) row.append(text('p', '完整消息暂无法绑定到已核对的来源修订。请打开完整会话核对并另行提供需求原文；审计摘要不能替代验收需求。', 'muted'));
     node.append(row);
   }
+  return node;
+}
+function reviewRequests(item) {
+  const node = text('section', '', 'review-requests');
+  const panel = text('div', ''); panel.hidden = true;
+  const status = text('p', '', 'muted'); status.setAttribute('role', 'status');
+  const rows = text('div', '');
+  let sequence = 0, nextOffset = 0;
+  const more = button('更多用户消息', () => load(true)); more.hidden = true;
+  async function load(append = false) {
+    const current = ++sequence;
+    status.textContent = '正在读取用户原文…'; more.disabled = true;
+    const params = new URLSearchParams({system:item.system || 'linux', source:item.source,
+      session:item.id || item.session_id, source_revision:item.source_revision || '',
+      content_revision:item.provenance?.content_revision || 'unknown', context_revision:item.provenance?.context_revision || 'unknown',
+      offset:String(append ? nextOffset : 0), limit:'10'});
+    if (item.store_id) params.set('store_id', item.store_id);
+    try {
+      const data = await request(`/api/reuse/review-requests?${params.toString()}`);
+      if (current !== sequence || panel.hidden) return;
+      if (!Array.isArray(data.items)) throw new Error('invalid_review_requests');
+      if (!append) rows.replaceChildren();
+      if (data.items.length) rows.append(matchingMessages(item, data.items, '', '用户需求与后续修订'));
+      nextOffset = data.next_offset;
+      more.hidden = nextOffset == null;
+      status.textContent = data.total ? `共 ${data.total} 条用户消息，已显示 ${nextOffset ?? data.total} 条。请核对需求以及后续纠正；用户消息不一定都是本次需求。` : '未找到用户原文，不能据此推断没有需求。';
+    } catch (error) {
+      if (current !== sequence || panel.hidden) return;
+      rows.replaceChildren(); more.hidden = true;
+      status.textContent = `无法读取用户需求（${error.message}）。${/selection_message_outside_verified_scope/.test(error.message) ? '此会话超出可导出范围，请打开完整会话另行核对原文；不要用摘要替代。' : errorAdvice(error)}`;
+    } finally { if (current === sequence) more.disabled = false; }
+  }
+  const open = button('选择用户需求原文', async () => {
+    panel.hidden = !panel.hidden; open.setAttribute('aria-expanded', String(!panel.hidden));
+    if (panel.hidden) { sequence++; return; }
+    await load();
+  });
+  open.setAttribute('aria-expanded', 'false');
+  panel.append(status, rows, more); node.append(open, panel);
   return node;
 }
 function searchResult(item, query) {
@@ -325,6 +370,7 @@ function searchResult(item, query) {
       if (!Array.isArray(evidence.evidence)) throw new Error('invalid_evidence');
       const boundItem = {...item, ...evidence};
       detail.replaceChildren();
+      detail.append(reviewRequests(boundItem));
       if (snippets.length) detail.append(matchingMessages(boundItem, snippets, query));
       detail.append(facts(boundItem));
     } catch (error) {
@@ -406,6 +452,7 @@ async function loadPage(kind, params, append = false) {
 function persistSearch(params) {
   if (!window.history?.replaceState || !window.location) return;
   const query = new URLSearchParams({view: 'search'});
+  if (state.selectionPurpose === 'review') query.set('purpose', 'review');
   for (const key of ['q', 'source', 'project', 'start', 'end']) if (params[key]) query.set(key, params[key]);
   const value = query.toString();
   window.history.replaceState(null, '', `${window.location.pathname || '/'}${value ? `?${value}` : ''}${window.location.hash || ''}`);
@@ -422,6 +469,7 @@ function restoreSearchFromUrl(searchValue = window.location?.search || '') {
   if (!params.has('q') && params.get('view') !== 'search') return false;
   for (const [id, key] of [['reuseQuery', 'q'], ['reuseProject', 'project'], ['reuseStart', 'start'], ['reuseEnd', 'end']]) $(id).value = params.get(key) || '';
   setSourceFilter(params.get('source') || '');
+  if (params.get('purpose') === 'review') setSelectionPurpose('review');
   return true;
 }
 function searchParams() {
@@ -488,15 +536,27 @@ function timeline(append = false) {
   if ($('timelineFile').value.trim()) params.file = $('timelineFile').value.trim();
   return loadPage('timeline', params);
 }
+function setSelectionPurpose(purpose) {
+  state.selectionPurpose = purpose === 'review' ? 'review' : 'handoff';
+  $('selectionPurpose').value = state.selectionPurpose;
+  invalidatePreview();
+  renderSelection();
+}
 function renderSelection() {
   updateLayout();
+  $('materialPreview').disabled = !state.selected.size;
   $('selectionCount').textContent = `${state.selected.size} / 5`;
   $('selectionPreview').disabled = !state.selected.size;
   $('selectionClear').disabled = !state.selected.size;
+  const review = state.selectionPurpose === 'review';
+  $('selectionPreview').textContent = review ? '生成验收交接预览' : '生成交接预览';
+  $('selectionGuide').textContent = review
+    ? '先搜索并选择用户原始需求、后续纠正，再选实现或测试线索。至少一条用户完整消息，最多 5 条、共 8000 字符。这里只生成验收包，不会自动调用模型或读取当前代码。'
+    : '从会话中选择证据，核对预览后复制或下载。最多 5 条。';
   $('selectionList').replaceChildren();
   for (const [key, item] of state.selected) {
     const row = text('div', '', 'selection-item');
-    row.append(text('p', `${item.selection.source} / ${item.title}`), text('p', item.selection.evidence_id ? '将导出审计摘要' : `将导出完整消息 ${item.selection.message_index}（当前仅显示摘录）`, 'muted'), text('p', item.summary));
+    row.append(text('p', `${item.selection.source} / ${item.title}`), text('p', item.selection.evidence_id ? '将导出审计摘要' : `将导出完整消息 ${item.selection.message_index}${item.role === 'user' ? ' · 用户原文' : item.role === 'assistant' ? ' · 助手历史陈述' : ''}（当前仅显示摘录）`, 'muted'), text('p', item.summary));
     row.append(button('移除', () => { invalidatePreview(); state.selected.delete(key); renderSelection(); }));
     $('selectionList').append(row);
   }
@@ -505,22 +565,88 @@ function renderSelection() {
 async function previewSelection() {
   if (!state.selected.size) return;
   const version = state.selectionVersion, sequence = ++state.selectionSequence;
+  const review = state.selectionPurpose === 'review';
   state.preview = null; $('selectionExport').hidden = true; $('selectionMarkdown').textContent = '';
   $('selectionPreview').disabled = true;
   $('selectionStatus').textContent = '正在核对所选证据并生成预览…';
   try {
-    const data = await post('/api/reuse/selection', {selections: Array.from(state.selected.values(), item => item.selection)});
+    const data = await post(review ? '/api/reuse/review-preview' : '/api/reuse/selection', {selections: Array.from(state.selected.values(), item => item.selection)});
     if (version !== state.selectionVersion || sequence !== state.selectionSequence) return;
     if (typeof data.markdown !== 'string' || !Array.isArray(data.items) || data.authorization !== 'context_only') throw new Error('invalid_selection');
+    if (review && (data.schema_version !== 'history.review-packet.v1' || data.code_verification !== 'not_performed')) throw new Error('invalid_review_packet');
     state.preview = data;
     $('selectionMarkdown').textContent = data.markdown;
     $('selectionExport').hidden = false;
-    $('selectionStatus').textContent = '预览已就绪。请核对下方内容，再复制或下载。';
+    $('selectionStatus').textContent = review ? '验收包已就绪，尚未验收代码。核对需求与后续纠正后，把此包交给当前项目中的高级模型。' : '预览已就绪。请核对下方内容，再复制或下载。';
   } catch (error) {
     if (version !== state.selectionVersion || sequence !== state.selectionSequence) return;
-    $('selectionStatus').textContent = `无法生成交接（${error.message}）。${errorAdvice(error, '来源可能已变化，请重新读取并选择证据。')}`;
+    const advice = review && /selection_body_limit_exceeded|selection_message_outside_verified_scope/.test(error.message)
+      ? '需求原文超出导出范围，未生成不完整验收包。请分批交接，或在完整会话中核对原文；不要用摘要替代需求。'
+      : errorAdvice(error, '来源可能已变化，请重新读取并选择证据。');
+    $('selectionStatus').textContent = `无法生成交接（${error.message}）。${advice}`;
   } finally {
     if (version === state.selectionVersion && sequence === state.selectionSequence) $('selectionPreview').disabled = !state.selected.size;
+  }
+}
+const materialFields = ['title', 'result', 'problem', 'steps', 'lesson'];
+let materialSequence = 0, materialPreviewData = null;
+function materialInput() {
+  return {selections: Array.from(state.selected.values(), item => item.selection),
+    fields: Object.fromEntries(materialFields.map(key => [key, $('material' + key[0].toUpperCase() + key.slice(1)).value]))};
+}
+function invalidateMaterial() {
+  materialSequence++;
+  materialPreviewData = null;
+  $('materialOutput').hidden = true;
+  $('materialMarkdown').textContent = '';
+  $('materialExport').disabled = true;
+  $('materialStatus').textContent = '';
+  $('materialPreview').disabled = !state.selected.size;
+}
+function materialError(error) {
+  const messages = {material_title_result_required: '请填写素材标题和完成了什么。',
+    material_existing_file_changed: '目标素材已被人工修改，未覆盖。请下载这份新预览并人工合并。',
+    material_preview_changed: '内容已变化，请重新预览后导出。',
+    material_export_not_configured: '尚未配置素材目录，可先下载 Markdown。',
+    material_field_limit: '填写内容超过长度上限，请精简后重试。'};
+  return messages[error.message] || errorAdvice(error, '操作未完成，请重新预览后重试。');
+}
+async function previewMaterial() {
+  if (!state.selected.size) return;
+  invalidateMaterial();
+  const sequence = materialSequence;
+  $('materialPreview').disabled = true;
+  $('materialStatus').textContent = '正在核对证据并生成素材…';
+  try {
+    const data = await post('/api/reuse/material-preview', materialInput());
+    if (sequence !== materialSequence) return;
+    if (data.schema_version !== 'history.material.v1' || typeof data.markdown !== 'string') throw new Error('invalid_material');
+    materialPreviewData = data;
+    $('materialMarkdown').textContent = data.markdown;
+    $('materialNotice').textContent = data.redaction_notice;
+    $('materialDestination').textContent = data.export_enabled ? `素材目录：${data.destination}` : '未配置素材目录。可下载 Markdown；目录由启动参数 --material-dir 配置。';
+    $('materialOutput').hidden = false;
+    $('materialExport').disabled = !data.export_enabled;
+    $('materialStatus').textContent = '请核对成果、证据和隐私，再导出。这份素材仍需人工核实。';
+  } catch (error) {
+    if (sequence === materialSequence) $('materialStatus').textContent = materialError(error);
+  } finally {
+    if (sequence === materialSequence) $('materialPreview').disabled = !state.selected.size;
+  }
+}
+async function exportMaterial() {
+  const preview = materialPreviewData, sequence = materialSequence;
+  if (!preview || !preview.export_enabled) return;
+  $('materialExport').disabled = true;
+  $('materialStatus').textContent = '正在核对并保存当前预览…';
+  try {
+    const result = await post('/api/reuse/material-export', {...materialInput(), revision: preview.revision});
+    if (sequence !== materialSequence) return;
+    $('materialStatus').textContent = `${result.status === 'already_exists' ? '已存在相同素材，没有重复写入' : '已导出素材'}：${result.filename}。尚未进入公众号草稿箱。`;
+  } catch (error) {
+    if (sequence === materialSequence) $('materialStatus').textContent = materialError(error);
+  } finally {
+    if (sequence === materialSequence) $('materialExport').disabled = false;
   }
 }
 function download(name, contents, type) {
@@ -531,7 +657,8 @@ function download(name, contents, type) {
 }
 function downloadSelection(format) {
   if (!state.preview) return;
-  download(`history-evidence.${format}`, format === 'md' ? state.preview.markdown : JSON.stringify(state.preview, null, 2), format === 'md' ? 'text/markdown;charset=utf-8' : 'application/json');
+  const name = state.preview.schema_version === 'history.review-packet.v1' ? 'review-handoff' : 'history-evidence';
+  download(`${name}.${format}`, format === 'md' ? state.preview.markdown : JSON.stringify(state.preview, null, 2), format === 'md' ? 'text/markdown;charset=utf-8' : 'application/json');
 }
 async function copySelection() {
   if (!state.preview) return;
@@ -545,7 +672,7 @@ async function copySelection() {
 }
 function sourceLabel(source) {
   return {codebuddy: 'CodeBuddy (cbc)', gemini: 'Gemini CLI', opencode: 'OpenCode',
-    codex: 'Codex', claude: 'Claude Code', pi: 'pi', copilot: 'GitHub Copilot', zcode: 'ZCode', prime: 'Prime Agent', agy: 'AGY CLI', antigravity: 'Antigravity'}[source] || source || '未知来源';
+    codex: 'Codex', claude: 'Claude Code', pi: 'pi', copilot: 'GitHub Copilot', zcode: 'ZCode', prime: 'Prime Agent', agy: 'AGY CLI', mcode: 'MiniMax Code (mcode)', antigravity: 'Antigravity'}[source] || source || '未知来源';
 }
 function renderHealth(data) {
   if (!Array.isArray(data.sources)) throw new Error('invalid_health');
@@ -641,8 +768,14 @@ for (const view of ['search', 'projects']) {
     $(`${next}Tab`).focus();
   });
 }
+for (const key of materialFields) $('material' + key[0].toUpperCase() + key.slice(1)).addEventListener('input', invalidateMaterial);
+$('materialPreview').addEventListener('click', previewMaterial);
+$('materialExport').addEventListener('click', exportMaterial);
+$('materialDownload').addEventListener('click', () => { if (materialPreviewData) download(materialPreviewData.filename, materialPreviewData.markdown, 'text/markdown;charset=utf-8'); });
 $('selectionClear').addEventListener('click', () => { invalidatePreview(); state.selected.clear(); renderSelection(); });
 $('selectionPreview').addEventListener('click', previewSelection);
+$('selectionPurpose').addEventListener('change', () => { setSelectionPurpose($('selectionPurpose').value); if (state.view === 'search') persistSearch(searchParams()); });
+$('reviewStart').addEventListener('click', () => { setSelectionPurpose('review'); setView('search'); $('reuseQuery').focus(); });
 $('selectionCopy').addEventListener('click', copySelection);
 $('selectionDownloadMd').addEventListener('click', () => downloadSelection('md'));
 $('selectionDownloadJson').addEventListener('click', () => downloadSelection('json'));
@@ -661,6 +794,6 @@ async function bootstrapWorkspace() {
     if ($('reuseQuery').value.trim()) await search();
   } else await setView('projects', false);
 }
-if (typeof window !== 'undefined') window.__workspaceTestApi = {state, record, facts, matchingMessages, restoreSearchFromUrl, bootstrapWorkspace, fileChanges, rawRecord, hasSourceRevision, errorAdvice, historyLink, searchResult, selectionFor, toggleSelection, renderSelection, previewSelection, copySelection, downloadSelection, renderHealth, loadHealth, previewDiagnostic, search, loadPage, renderPage, setView, showProjects, selectProject, timeline, isStale};
+if (typeof window !== 'undefined') window.__workspaceTestApi = {previewMaterial, exportMaterial, invalidateMaterial, state, record, facts, matchingMessages, restoreSearchFromUrl, bootstrapWorkspace, fileChanges, rawRecord, hasSourceRevision, errorAdvice, historyLink, searchResult, selectionFor, toggleSelection, renderSelection, previewSelection, copySelection, downloadSelection, renderHealth, loadHealth, previewDiagnostic, search, loadPage, renderPage, setView, showProjects, selectProject, timeline, isStale};
 renderSelection();
 bootstrapWorkspace();

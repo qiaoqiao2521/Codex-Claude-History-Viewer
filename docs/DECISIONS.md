@@ -192,6 +192,10 @@ Reuse the existing storage/parsers and keep SpecMesh independently callable. Do 
 
 用户本人验收指出重复搜索、来源标签拥挤和设置缺失。决定默认项目目录 → 跨来源会话 → 对话，保留一个全局检索入口；阅读页仅按需展开会话内查找、续接信息与审计交接。主题/字号/消息显示及来源状态放统一设置，沿用本地偏好键。项目目录复用已有索引，单独提供不生成审计的轻量会话列表。拒绝把所有能力持续铺在侧栏，也不为这次交互调整替换渲染器或引入前端框架。用户反馈或实际导航边界再决定后续变化。
 
+## 2026-09-27 — 成果素材以本地 Markdown 交接
+
+采用既有修订绑定的证据选择与人工表单，产出待核实素材，不把 AI 自报完成作为已验证成果。通过显式配置的 inbox 与独立内容仓交接，不改 qiao-wechat MediaAsset 或自动创建文章/远程草稿。身份来自所选证据集合，修订来自字段及来源修订；以原子新建保护人工改稿，相同内容幂等。新修订保留旧稿，归并由人负责。
+
 ## 2026-09-27 — 会话归组与原文导航保持可解释、无损
 
 专注 Agent 对话阅读：相关组仅以同项目且规范化后标题相同的明确线索生成，泛化标题不组，不做会话采样或删除，不将同组认定为同一任务。关键消息复用全文消息索引和原有修订深链；“提及失败/验证”只表示措辞，“最后回复”不表示完成。首尾锚点独立于 80 条线索上限，超限/正文不完整/来源不支持均披露。拒绝新聚类运行时、隐式 LLM 分析和把历史陈述写成项目当前事实。名称暂不迁移；后续范围以真实阅读障碍为依据。
@@ -209,3 +213,9 @@ Date-specific Web review uses verified public message timestamps and an explicit
 ## 2026-09-29 — Separate operation signals from review value
 
 Keep the legacy value_score field and formula for compatibility, but describe it as an operation-record signal, not delivery or importance. Heuristic review is always available regardless of score; auto uses it when the external-call cost policy blocks a model call. Explicit llm mode retains the configured cost gate. Current project indexes point to accepted/current records rather than carrying stale next-step lists.
+
+## 2026-10-01 — Agent 对接为主，取消独立人类试用门槛
+
+用户明确“真实用户接入的计划其实不需要了，agent 对接为主”。取消 history-reuse-product 的 U1 及旧 product-validation 的 M3，不再作为待办或发布门槛；覆盖此前“稍后安排”和“暂存待 U1”的决定。原试用未执行，历史材料与冻结验收快照保留，不改写为通过。
+
+优先既有无头检索/日活动、原需求与后续纠正定位、修订绑定的选取与验收交接；Web 保留人工查阅和预览。上下文交接不代表当前代码已验证，不自动调用模型或执行会话。仍保留接口正确性、来源只读、隐私、有界读取、失效与部分失败披露，以及发布产物/安装/回滚检查。只有明确提出新的独立用户研究需求才重开试用，不自动恢复旧门槛。

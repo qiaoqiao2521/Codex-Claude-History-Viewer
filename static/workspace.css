@@ -75,6 +75,8 @@ body.workspace-page { display:block; height:auto; min-height:100vh; overflow:aut
 .selection-panel { position:sticky; top:16px; padding:16px; border:1px solid var(--border); border-radius:8px; background:var(--panel); }
 .selection-panel h2 span { font-size:12px; font-weight:400; color:var(--muted); font-variant-numeric:tabular-nums; }
 .selection-panel > p { font-size:12px; margin:10px 0; }
+.review-entry { display:flex; align-items:center; flex-wrap:wrap; gap:8px; font-size:13px; }
+.selection-panel > select { display:block; max-width:100%; margin-top:6px; }
 .selection-item { border-top:1px solid var(--border); padding:10px 0; }
 .selection-item p { margin:0 0 6px; font-size:12px; }
 .selection-item button { margin-top:4px; }
@@ -97,3 +99,10 @@ body.workspace-page { display:block; height:auto; min-height:100vh; overflow:aut
 .file-change-path { font-weight:600; }
 .historical-diff { margin:8px 0; }
 .historical-diff summary { color:var(--accent); font-size:12px; }
+
+.material-editor { margin-top:20px; padding-top:16px; border-top:1px solid var(--border); }
+.material-editor summary { font-weight:600; }
+.material-editor label { display:block; margin:12px 0 5px; }
+.material-editor textarea { width:100%; resize:vertical; font:inherit; line-height:1.6; padding:8px; background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; }
+.material-editor > button { margin-top:12px; }
+#materialMarkdown { white-space:pre-wrap; overflow-wrap:anywhere; max-height:440px; overflow:auto; padding:12px; background:var(--surface-subtle); font-size:12px; }

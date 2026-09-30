@@ -10,6 +10,19 @@ from audit import extract_session_audit_bytes
 from .providers import FILE_SOURCES
 
 MAX_SOURCE_BYTES = 2 * 1024 * 1024
+PUBLIC_SNAPSHOT_SOURCES = frozenset(('agy', 'antigravity', 'zcode', 'mcode'))
+
+
+def selected_review_snapshot(indexer, session_id):
+    """Capture public messages and evidence together for composite/native stores."""
+    source = getattr(indexer, 'source', '')
+    if source == 'mcode':
+        from .mcode_review import mcode_review_snapshot
+        return mcode_review_snapshot(indexer, session_id)
+    if source in ('agy', 'antigravity', 'zcode'):
+        from .native_review import native_review_snapshot
+        return native_review_snapshot(indexer, session_id)
+    return None
 
 
 def validate_native_size(indexer, session_id):
@@ -28,6 +41,18 @@ def validate_native_size(indexer, session_id):
 def selected_snapshot(indexer, session_id):
     """Read only the chosen JSONL, and extract from precisely the hashed bytes."""
     source = getattr(indexer, 'source', '')
+    if source in PUBLIC_SNAPSHOT_SOURCES:
+        try:
+            snapshot = selected_review_snapshot(indexer, session_id)
+        except ValueError as error:
+            # Preserve partial AGY audit browsing, without offering a complete
+            # original-message binding for undecoded/legacy records.
+            if str(error) != 'selection_native_content_unsupported':
+                raise
+        else:
+            # No raw row fallback: native stores have no JSONL line, and mcode
+            # records may mix public text with excluded private blocks.
+            return snapshot['audit'], snapshot['provenance'], None
     root = getattr(indexer, 'sessions_dir', None)
     if root is None or source not in FILE_SOURCES:
         validate_native_size(indexer, session_id)

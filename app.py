@@ -252,11 +252,12 @@ class SourceBackend:
 
 
 class Handler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, directory=None, source_backends=None, wsl_distro=None, runtime_system="windows", audit_config=None, demo=False, **kwargs):
+    def __init__(self, *args, directory=None, source_backends=None, wsl_distro=None, runtime_system="windows", audit_config=None, demo=False, material_dir=None, **kwargs):
         self._source_backends = source_backends or {}
         self._wsl_distro = wsl_distro
         self._runtime_system = str(runtime_system or "windows").strip() or "windows"
         self._audit_config = audit_config or {}
+        self._material_dir = material_dir
         self._demo = bool(demo)
         super().__init__(*args, directory=directory, **kwargs)
 
@@ -551,6 +552,13 @@ class Handler(SimpleHTTPRequestHandler):
                     source_revision=value('source_revision') or None)
             elif endpoint == 'timeline':
                 result = reuse.timeline(sources, project=value('project'), file_path=value('file') or None, **page)
+            elif endpoint == 'review-requests':
+                from history_core.evidence import _resolve
+                from history_core.review import list_review_requests
+                target = _resolve(sources, {'system':value('system'), 'source':value('source'), 'store_id':value('store_id')})
+                result = list_review_requests(target[2], value('session'),
+                    source_revision=value('source_revision'), content_revision=value('content_revision'),
+                    context_revision=value('context_revision'), offset=int(value('offset', 0)), limit=int(value('limit', 10)))
             elif endpoint == 'raw':
                 from history_core.evidence import raw_record
                 target = next((x for x in sources if x[0] == value('system') and x[1] == value('source')), None)
@@ -585,9 +593,27 @@ class Handler(SimpleHTTPRequestHandler):
                 if backend is None: raise ValueError('source_unavailable')
                 backend._refresh_index_once()
                 return self.send_json({'status':'refreshed'})
-            if endpoint == 'selection':
+            if endpoint in ('material-preview', 'material-export'):
+                from history_core.materials import preview_material, export_material
+                # JSON + same-origin checks prevent drive-by local filesystem writes.
+                origin = self.headers.get('Origin')
+                host = self.headers.get('Host', '')
+                if urlparse('http://' + host).hostname not in ('localhost', '127.0.0.1', '::1'):
+                    return self.send_json({'error': 'material_loopback_required'}, status=403)
+                if self.headers.get('Content-Type', '').split(';')[0].strip() != 'application/json' or (origin and origin not in ('http://' + host, 'https://' + host)) or self.headers.get('Sec-Fetch-Site') == 'cross-site':
+                    return self.send_json({'error': 'material_same_origin_required'}, status=403)
+                sources, errors = self._reuse_sources()
+                material = preview_material(sources, data.get('selections'), data.get('fields'))
+                root = getattr(self, '_material_dir', None)
+                if endpoint == 'material-export':
+                    return self.send_json(export_material(root, material, data.get('revision')))
+                return self.send_json({**material, 'export_enabled': bool(root), 'destination': str(root) if root else None})
+            if endpoint in ('selection', 'review-preview'):
                 from history_core.evidence import selection_bundle
                 sources,errors=self._reuse_sources()
+                if endpoint == 'review-preview':
+                    from history_core.review import build_review_packet
+                    return self.send_json(build_review_packet(sources, data.get('selections')))
                 return self.send_json(selection_bundle(sources,data.get('selections')))
             return self.send_json({'error':'not_found'},status=404)
         except (ValueError,OSError,sqlite3.Error) as exc:
@@ -896,12 +922,15 @@ class Handler(SimpleHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description="Local Agent CLI history viewer")
     parser.add_argument("--version", action="version", version=Path(__file__).with_name("VERSION").read_text().strip())
+    parser.add_argument("--material-dir", help="Explicit local Markdown material inbox; disabled by default")
     parser.add_argument("--demo", action="store_true", help="Use packaged synthetic data only; disable private source discovery")
     parser.add_argument("--no-wsl", action="store_true", help="Do not discover or start WSL sources")
     parser.add_argument("--codex-dir", default=os.path.expanduser("~/.codex"))
     parser.add_argument("--claude-dir", default=os.path.expanduser("~/.claude"))
     parser.add_argument("--openclaw-dir", default=os.path.expanduser("~/.openclaw"))
     parser.add_argument("--codebuddy-dir", "--cbc-dir", dest="codebuddy_dir", default=os.environ.get('CODEBUDDY_CONFIG_DIR') or os.path.expanduser("~/.codebuddy"))
+    parser.add_argument("--mcode-dir", default=os.path.expanduser("~/.minimax"))
+    parser.add_argument("--mcode-sessions-dir", default=None, help="Explicit mcode v2 sessions directory")
     parser.add_argument("--gemini-dir", default=os.environ.get('GEMINI_CLI_HOME') or os.path.expanduser("~/.gemini"))
     parser.add_argument("--pi-dir", default=os.environ.get('PI_CODING_AGENT_DIR') or os.path.expanduser("~/.pi/agent"))
     parser.add_argument("--pi-sessions-dir", default=os.environ.get('PI_CODING_AGENT_SESSION_DIR'))
@@ -934,9 +963,10 @@ def main():
         args.codex_dir = str(demo_root / 'codex')
         args.claude_dir = str(demo_root / 'claude')
         args.openclaw_dir = str(demo_root / 'openclaw')
-        for source in ('codebuddy', 'gemini', 'pi', 'prime', 'copilot'):
+        for source in ('codebuddy', 'gemini', 'pi', 'prime', 'copilot', 'mcode'):
             setattr(args, source + '_dir', str(demo_root / source))
         args.pi_sessions_dir = args.prime_sessions_dir = None
+        args.mcode_sessions_dir = None
         args.no_wsl = True
     codex_dir = Path(args.codex_dir).expanduser()
     claude_dir = Path(args.claude_dir).expanduser()
@@ -1035,12 +1065,12 @@ def main():
         register_source("linux", "claude", claude_dir, claude_dir / "projects", "index_linux_claude.sqlite", parse_claude_session_file, 5, file_filter_fn=claude_filter)
         register_source("linux", "openclaw", openclaw_dir, openclaw_dir / "agents", "index_linux_openclaw.sqlite", parse_openclaw_session_file, 1, file_filter_fn=openclaw_filter)
 
-        for source, subdir in (('codebuddy', 'projects'), ('gemini', 'tmp'), ('pi', 'sessions'), ('prime', 'sessions'), ('copilot', 'session-state')):
+        for source, subdir in (('codebuddy', 'projects'), ('gemini', 'tmp'), ('pi', 'sessions'), ('prime', 'sessions'), ('copilot', 'session-state'), ('mcode', 'v2/sessions')):
             root = Path(getattr(args, source + '_dir')).expanduser()
             override = getattr(args, source + '_sessions_dir', None)
             sessions = Path(override).expanduser() if override else root / subdir
             register_source('linux', source, root, sessions,
-                            'index_linux_' + source + '.sqlite', parser_for(source), 1,
+                            'index_linux_' + source + '.sqlite', parser_for(source), 2 if source == 'mcode' else 1,
                             file_filter_fn=lambda path, src=source: include_file(src, path),
                             read_only=True)
             if override:
@@ -1100,6 +1130,7 @@ def main():
             runtime_system=runtime_system,
             audit_config=audit_config,
             demo=args.demo,
+            material_dir=args.material_dir,
             **inner_kwargs,
         )
 

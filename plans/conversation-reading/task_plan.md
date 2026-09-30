@@ -27,8 +27,8 @@
 
 沿用 DESIGN.md 的 --panel/#fff、--bg/#f5f7fb、--text/#1f2937、--muted/#6b7280、--border/#dbe3ee、--accent/#2563eb；组件引用变量，六主题不另配色。系统字体与现有字号。左侧 native details 内保留普通会话行，右侧标题旁增加单一折叠导航，不让工具占满正文区域；键盘焦点和加载状态可见。
 
-采用 Obsidian `Wiki/自动化开发范式与智能体协作.md#按当前任务选择验收依据`：代码测试与真实点击分别记录；源码完成不表示已发行/已安装，U1 仍待用户安排。
+采用 Obsidian `Wiki/自动化开发范式与智能体协作.md#按当前任务选择验收依据`：代码测试与真实点击分别记录；源码完成不表示已发行/已安装，U1 已于 2026-10-01 取消。
 
 ## Status
 
-2026-09-28：已随本提交收口，**暂存待 U1**。不发 rc.4，不替换安装；U1 仍待独立用户。展示名称定为 AgentTraceMesh，原名与技术入口兼容。详见 [验收记录](browser-report.md)。研究依据见 [trace-positioning](../trace-positioning/task_plan.md)。
+2026-09-28：已随本提交收口，**工程完成（原暂存待 U1，2026-10-01 取消门槛）**。不发 rc.4，不替换安装；不再等待独立用户试用。展示名称定为 AgentTraceMesh，原名与技术入口兼容。详见 [验收记录](browser-report.md)。研究依据见 [trace-positioning](../trace-positioning/task_plan.md)。

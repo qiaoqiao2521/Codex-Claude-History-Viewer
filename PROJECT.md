@@ -10,6 +10,7 @@ Local Agent CLIs and desktop clients leave useful session history, but raw trans
 - Provide explicit resume commands for a selected native provider session when available. The user can execute them through their selected native CLI or choose CM for supervised adoption; TaskHub is not a prerequisite. Native conversation context and verified SpecMesh project files are complementary layers.
 - See the practical value of a session: what changed, what was tested, where it failed, and whether the request converged.
 - Continue work from compact, evidence-backed handoff context instead of replaying an entire transcript.
+- Support general/lower-cost models doing implementation and a user-selected stronger model reviewing it: carry selected original requirements, later corrections and historical evidence into a requirement-by-requirement check against the current code. Exporting context itself is not approval or verification.
 - Keep private development history on the user's machine by default.
 - Deliver history retrieval, evidence and explicit resume commands independently of CM. History does not execute provider sessions; the user-selected native CLI or optional CM owns execution, and live CM facts are an optional adapter.
 
@@ -38,28 +39,35 @@ A user can locate and inspect a relevant session quickly, understand its intent,
 
 The stable `v1.2.0` Linux release delivers the public read-only reader, revision-bound pagination, atomic incremental indexing, bounded source-aware handoff and the six-section human workspace. Weak-session cleanup is disabled and demo caches are isolated. Five sources have synthetic read-only coverage; Hermes ordinary audit remains explicitly unsupported.
 
-Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56ea16daa2138c6c`; the published archive, local launcher and actual test process identities were verified on 2026-09-15. The process is now stopped; this dated observation is not continuous runtime monitoring. See [release evidence](plans/bounded-delivery/progress.md). Windows/WSL and live model/CM execution are outside this release acceptance. The historical M3 independent-user trial remains unfinished and is not counted as passed.
+Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56ea16daa2138c6c`; the published archive, local launcher and actual test process identities were verified on 2026-09-15. The process is now stopped; this dated observation is not continuous runtime monitoring. See [release evidence](plans/bounded-delivery/progress.md). Windows/WSL and live model/CM execution are outside this release acceptance. The historical M3 independent-user trial was not performed; the user cancelled it on 2026-10-01. It is no longer a pending task or release gate.
 
 ## Current Priority
 
-2026-09-27 [相关会话归组与关键消息导航](plans/conversation-reading/task_plan.md)：专注 Agent 对话阅读，相关性仅作可解释线索，全部原会话/原文保留，关键节点绑定来源修订。源码及隔离浏览器验收完成；2026-09-28 随本提交归档，状态为“暂存待 U1”，不发 rc.4、不替换现有安装。产品展示名定为 AgentTraceMesh（原 Codex & Claude History Viewer），技术兼容标识保留；不引入采样检索或第三方聚类运行时。
+2026-10-01：**Agent 对接为主**。先检索与定位证据，再把原需求、后续纠正和选定片段交给接手模型核对当前代码；Web 保留人工查阅与预览。U1/M3 独立人类试用已取消，不再邀请、等待或阻塞交付；自动验收不冒充人类试用。
 
-用户本人验收后要求产品化：默认选项目直接看对话，去掉阅读页重复全局搜索和拥挤来源标签，增加统一设置。[project-reader-ux](plans/project-reader-ux/task_plan.md) 已完成；候选 1.3.0-rc.3（源码 c47bbc8）已离线验包、安装并在本机8787运行供用户继续验收，保留证据与修订校验。候选交付事实以该计划 progress 为准，U1 不变。
+2026-09-27 [相关会话归组与关键消息导航](plans/conversation-reading/task_plan.md)：专注 Agent 对话阅读，相关性仅作可解释线索，全部原会话/原文保留，关键节点绑定来源修订。源码及隔离浏览器验收完成；2026-09-28 随本提交归档，当时状态为“暂存待 U1”；2026-10-01 用户取消该试用门槛，现为工程完成，不发 rc.4、不替换现有安装。产品展示名定为 AgentTraceMesh（原 Codex & Claude History Viewer），技术兼容标识保留；不引入采样检索或第三方聚类运行时。
+
+新增用户授权：[成果素材接入](plans/outcome-materials/task_plan.md)。从所选证据整理一项 AI 辅助成果，预览后写入显式配置的本地公众号素材目录；历史来源保持只读。不自动写成文章或创建微信草稿，人工核实后沿用现有 qiao-wechat 流程。
+
+用户本人验收后要求产品化：默认选项目直接看对话，去掉阅读页重复全局搜索和拥挤来源标签，增加统一设置。[project-reader-ux](plans/project-reader-ux/task_plan.md) 已完成；候选 1.3.0-rc.3（源码 c47bbc8）已离线验包、安装并在本机8787运行供用户继续验收，保留证据与修订校验。候选交付事实以该计划 progress 的日期为准，不代表当前进程状态。U1 已取消。
 
 新增用户授权：盘点本机 Linux Agent CLI 并接入历史，明确包括 OpenCode 与 CodeBuddy/cbc。[local-cli-sources](plans/local-cli-sources/task_plan.md) 的 13 来源注册、解析、工程回归与浏览器验收已完成；候选 1.3.0-rc.2（源码 eb40004）的离线包与安装目录保留，当前 `cchv` 已更新为上述 rc.3。包装器按独立历史存储归并，逐来源记录已验证能力。
 
-用户指定专注 History Viewer、以 Linux 为主，并授权一次性完成 [历史找回与复用计划](plans/history-reuse-product/task_plan.md)。五项增量已实现，候选 `1.3.0-rc.1` 的自动验收、浏览器验证、离线包与干净安装/回滚已完成（源码 0bb034b，本地交付）。U1 按用户回复“稍后安排，U1 保留待试用”保持 pending；不以工程交付替代独立用户体验验收。v1.2.0 仍是既有稳定发行，不使用 Goal 或定时续跑。
+用户指定专注 History Viewer、以 Linux 为主，并授权一次性完成 [历史找回与复用计划](plans/history-reuse-product/task_plan.md)。五项增量已实现，候选 `1.3.0-rc.1` 的自动验收、浏览器验证、离线包与干净安装/回滚已完成（源码 0bb034b，本地交付）。2026-10-01 用户改为 Agent 对接优先，取消 U1，不再等待独立用户；保留既有验收证据，不宣称未发生的用户体验验收通过。v1.2.0 仍是既有稳定发行，不使用 Goal 或定时续跑。
 
 ## Knowledge Map
 
-- Local CLI source expansion → [plans/local-cli-sources/](plans/local-cli-sources/)
-- Current product candidate and pending U1 → [plans/history-reuse-product/](plans/history-reuse-product/)
+- CBC/AGY/mcode/ZCode support original-request selection and revision-bound model-review handoff on supported bounded recordings; mcode also joins Linux Web discovery. No provider execution.
+- Implementation-to-review model handoff → [usage](docs/model-review-handoff.md), [plan](plans/model-review-handoff/task_plan.md)
+
 - Development experience lookup and closeout → [AGENTS.md](AGENTS.md), using the locally configured Obsidian question index. History remains the source-evidence reader; this convention does not change runtime export destinations or automatically publish transcript content.
 
+- Local CLI source expansion → [plans/local-cli-sources/](plans/local-cli-sources/)
+- Completed reuse engineering and Agent acceptance → [plans/history-reuse-product/](plans/history-reuse-product/)
 - Completed Linux delivery plan → [plans/bounded-delivery/](plans/bounded-delivery/)
 - Earlier Agent handoff implementation and partial evidence → [plans/agent-handoff-service/](plans/agent-handoff-service/)
 - Dated release alignment → [plans/release-alignment/](plans/release-alignment/)
-- Historical product validation / unfinished M3 → [plans/history-viewer-product-validation/](plans/history-viewer-product-validation/)
+- Historical product validation / cancelled M3 → [plans/history-viewer-product-validation/](plans/history-viewer-product-validation/)
 
 - How the system works → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Why durable choices were made → [docs/DECISIONS.md](docs/DECISIONS.md)
@@ -71,4 +79,4 @@ Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56e
 
 ## Approved next direction
 
-已交付 v1.2.0 的证据以 [bounded-delivery](plans/bounded-delivery/task_plan.md) 为准，5/5 complete。本轮 history-reuse-product 的实现和工程验收已授权，U1 人员由用户稍后安排；候选包保留本地，不自动发布稳定版或邀请试用。既有主工作区和直接 push 约定保留，不强制另建 worktree/PR。
+已交付 v1.2.0 的证据以 [bounded-delivery](plans/bounded-delivery/task_plan.md) 为准，5/5 complete。history-reuse-product 工程已完成，U1/M3 已由用户取消。后续优先无头检索、日活动证据、原需求与后续纠正的验收交接；依照实际 Agent 使用障碍安排改动。发布仍核验源码、产物、安装与回滚，不因取消试用自动升级版本或发布稳定版。既有主工作区和直接 push 约定保留，不强制另建 worktree/PR。

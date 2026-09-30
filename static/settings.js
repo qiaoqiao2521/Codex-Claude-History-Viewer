@@ -3,7 +3,7 @@
   const keys = {theme: 'historyViewer.ui.codeTheme', roles: 'historyViewer.ui.roleFilters', reader: 'historyViewer.ui.readerPreferences'};
   const themes = {light: '明亮', slate: '石板', warm: '暖色', forest: '森林', grape: '葡萄', dark: '深色'};
   const roles = {user: '我的消息', assistant: '助手回复', tool: '工具记录', system: '系统消息', developer: '开发者消息', other: '其他记录'};
-  const sourceNames = {codebuddy: 'CodeBuddy (cbc)', codex: 'Codex', claude: 'Claude Code', gemini: 'Gemini CLI', opencode: 'OpenCode', zcode: 'ZCode', copilot: 'GitHub Copilot', agy: 'AGY CLI', antigravity: 'Antigravity', pi: 'pi', prime: 'Prime Agent', openclaw: 'OpenClaw', hermes: 'Hermes'};
+  const sourceNames = {codebuddy: 'CodeBuddy (cbc)', codex: 'Codex', claude: 'Claude Code', gemini: 'Gemini CLI', opencode: 'OpenCode', zcode: 'ZCode', copilot: 'GitHub Copilot', agy: 'AGY CLI', mcode: 'MiniMax Code (mcode)', antigravity: 'Antigravity', pi: 'pi', prime: 'Prime Agent', openclaw: 'OpenClaw', hermes: 'Hermes'};
   const defaults = {fontSize: 14, toolsCollapsed: true, auditExpanded: false};
   const get = key => { try { return localStorage.getItem(key); } catch { return null; } };
   const json = key => { try { return JSON.parse(get(key)) || {}; } catch { return {}; } };

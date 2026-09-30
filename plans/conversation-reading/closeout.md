@@ -1,5 +1,7 @@
 # 2026-09-28 — 提交、定名与去向
 
+> 2026-10-01 当前决策：用户取消 U1/M3 独立人类试用，不再作为待办或发布门槛；以下为历史记录/可选模板，未执行的试用不计通过。当前主线见 [Agent 对接验收](../history-reuse-product/task_plan.md)。
+
 - 产品名：**AgentTraceMesh**，原 Codex & Claude History Viewer。README、项目主页与阅读页显示名已改，仓库路径/cchv/数据目录保留兼容，名称事项关闭。
 - conversation-reading：随本提交固定，**暂存待 U1**。不发 1.3.0-rc.4，不替换现有安装，不将开发者自测作为 U1。
 - 第一笔 `dbc2202`：全文检索依赖修复、search-hardening 补证；从暂存区导出独立树，437 项 Python（436 通过、1 skip）。原始 AX 文本中 9 处尾随空格保留以保护证据哈希；排除这些原始快照后的 diff --check 通过。

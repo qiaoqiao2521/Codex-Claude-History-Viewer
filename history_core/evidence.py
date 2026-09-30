@@ -13,7 +13,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .provenance import selected_audit, selected_snapshot
+from .provenance import PUBLIC_SNAPSHOT_SOURCES, selected_audit, selected_snapshot, selected_review_snapshot
 
 MAX_SELECTIONS = 5
 MAX_BODY_CHARS = 8000
@@ -162,19 +162,30 @@ def selection_bundle(indexers, selections):
                    for key in ("content_revision", "context_revision")):
             raise ValueError("selection_revision_required")
         system, source, indexer = _resolve(indexers, selection)
-        if getattr(indexer, "sessions_dir", None) is None:
+        public_snapshot = getattr(indexer, 'source', '') in PUBLIC_SNAPSHOT_SOURCES
+        if getattr(indexer, "sessions_dir", None) is None and not public_snapshot:
             raise ValueError("selection_revision_unsupported: native database snapshot unavailable")
         store = source_store_id(system, source, indexer)
         identity = (system, source, store, session_id, evidence_id or message_index)
         if identity in seen:
             raise ValueError("selection_duplicate")
         seen.add(identity)
-        message, signature = (None, None) if evidence_id else _indexed_message(indexer, session_id, message_index)
+        message, signature = (None, None) if evidence_id or public_snapshot else _indexed_message(indexer, session_id, message_index)
         try:
-            audit, provenance = selected_audit(indexer, session_id)
+            if public_snapshot:
+                snapshot = selected_review_snapshot(indexer, session_id)
+                audit, provenance = snapshot['audit'], snapshot['provenance']
+                if not evidence_id:
+                    message = next((row for row in snapshot['messages'] if row['message_index'] == message_index), None)
+                    if message is None:
+                        raise ValueError('selection_message_unavailable')
+            else:
+                audit, provenance = selected_audit(indexer, session_id)
         except (OSError, ValueError) as error:
             if "changed" in str(error):
                 raise ValueError("selection_stale: refresh and select again") from error
+            if str(error).startswith('selection_') or 'limit_exceeded' in str(error):
+                raise
             raise ValueError("selection_source_unavailable") from error
         if audit is None or not provenance:
             raise ValueError("selection_session_unavailable")
@@ -196,13 +207,16 @@ def selection_bundle(indexers, selections):
         else:
             if provenance.get("truncated"):
                 raise ValueError("selection_message_outside_verified_scope: use bounded audit evidence")
-            if signature != _message_signature(indexer, session_id):
+            if not public_snapshot and signature != _message_signature(indexer, session_id):
                 raise ValueError("selection_stale: index changed during read")
             text = message["text"] or ""
             locator["message_index"] = message_index
             locator["role"] = message["role"]
             locator["kind"] = message["kind"]
             locator["timestamp_ms"] = message["ts_ms"]
+            for key in ('raw_ref', 'native_ref'):
+                if message.get(key):
+                    locator[key] = message[key]
         body_chars += len(text)
         if body_chars > MAX_BODY_CHARS:
             raise ValueError("selection_body_limit_exceeded")

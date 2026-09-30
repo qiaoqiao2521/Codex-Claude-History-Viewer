@@ -1,5 +1,7 @@
 # History Viewer — 正确性收口与首次使用验证
 
+> 2026-10-01 当前决策：用户取消 U1/M3 独立人类试用，不再作为待办或发布门槛；以下为历史记录/可选模板，未执行的试用不计通过。当前主线见 [Agent 对接验收](../history-reuse-product/task_plan.md)。
+
 ## Goal
 
 让一个没有参与开发的人，仅依靠 README 就能安装启动 History Viewer，找到真实历史会话，理解有证据支持的交付结果，并导出可用于继续工作的交接材料。
@@ -10,7 +12,7 @@
 
 ## Status
 
-M1（七项复审）与 M2（真实浏览器验收）已完成，证据见 findings.md；当前 186 Python tests + 5 JS 套件通过。M3 陌生用户试用 pending（试用者由用户安排），M4 发布收口 pending。
+M1（七项复审）与 M2（真实浏览器验收）已完成，证据见 findings.md；当前 186 Python tests + 5 JS 套件通过。M3 陌生用户试用于 2026-10-01 取消；旧 M4 后续交付见 release-alignment / bounded-delivery，不再依赖 M3。
 
 ## Requirements
 
@@ -57,7 +59,7 @@ M1（七项复审）与 M2（真实浏览器验收）已完成，证据见 findi
 
 完成标准：准备一份可重复的浏览器操作记录；检索 → 证据 → 导出闭环通过；示例数据不泄露真实私有内容。未验证的平台列为未验证。
 
-### M3 — 小范围陌生用户试用（材料就绪，独立试用 pending，依赖 M2）
+### M3 — 已取消；以下保留原试用设计
 
 - 准备脱敏演示数据和一页任务说明；由用户安排至少一位未参与开发的试用者，不自动向外发送邀请。
 - 试用任务：启动 → 找到指定会话 → 指出一项有证据的改动/失败 → 导出交接；记录耗时、卡点、求助次数和是否完成。
@@ -65,7 +67,7 @@ M1（七项复审）与 M2（真实浏览器验收）已完成，证据见 findi
 
 完成标准：至少一名独立试用者在没有开发者逐步指导的情况下完成闭环，且没有未处理的阻断问题。若暂时无人试用，保持 pending，不用 Agent 自测替代。
 
-### M4 — 发布收口（pending，依赖 M1–M3）
+### M4 — 历史发布设计（后续交付已转至 release-alignment / bounded-delivery）
 
 - 定向回归通过后跑全量 Python 和五个 JS 测试文件；新增测试按实际计数更新文档。
 - README 只保留已验证能力、首次启动、缓存迁移和已知限制；校正 004 记录中的快照口径。
@@ -93,8 +95,8 @@ M1（七项复审）与 M2（真实浏览器验收）已完成，证据见 findi
 
 ## Next Step
 
-M2 已完成。M3 材料见 [试用任务单](m3-materials/trial-sheet.md) 和 [组织者说明](m3-materials/observer-guide.md)。下一步由用户安排试用者、干净账户和候选源码后执行独立基线试用；M3 仍 pending。
+M2 已完成。M3 材料见 [试用任务单](m3-materials/trial-sheet.md) 和 [组织者说明](m3-materials/observer-guide.md)。这些材料仅供可选复用；M3 已取消，没有待安排的独立试用。
 
 ## Release boundary update (2026-09-11)
 
-The user explicitly requested publication and local alignment. Publish the reviewed changes as v1.1.0-rc.1 while M3 remains pending; stable promotion still requires the independent trial. Candidate packaging/release can complete without marking overall product acceptance complete. See ../release-alignment/.
+The user explicitly requested publication and local alignment. Publish the reviewed changes as v1.1.0-rc.1 while M3 remains pending; the independent-trial gate in this historical decision was cancelled on 2026-10-01. Candidate packaging/release can complete without marking overall product acceptance complete. See ../release-alignment/.

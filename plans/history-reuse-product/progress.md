@@ -2,7 +2,7 @@
 
 ## Current
 
-2026-09-22：HV-reuse-linux-v1 实施 **5/5**。代码、契约测试、两轮独立审查及 Linux 真实浏览器工程验收完成；`1.3.0-rc.1` 候选代码为 `0bb034bd25c7ab6d2677d241dc087eb15313638b`，包、干净安装与 v1.2.0 回滚核验均通过。**U1 pending**，用户明确稍后安排。
+2026-09-22：HV-reuse-linux-v1 实施 **5/5**。代码、契约测试、两轮独立审查及 Linux 真实浏览器工程验收完成；`1.3.0-rc.1` 候选代码为 `0bb034bd25c7ab6d2677d241dc087eb15313638b`，包、干净安装与 v1.2.0 回滚核验均通过。该日期 U1 尚待安排；**2026-10-01 用户已取消 U1/M3，当前工程完成，无待安排试用，Agent 对接为主**。
 
 ## Done
 
@@ -14,18 +14,18 @@
 
 ### Candidate artifacts
 
-源码冻结：`0bb034bd25c7ab6d2677d241dc087eb15313638b`（功能主提交 `7499157` + 导出定位字段收紧）。收尾文档提交可以在其之后，不改变包内源码身份。U1 pending，候选仅本地交付。
+源码冻结：`0bb034bd25c7ab6d2677d241dc087eb15313638b`（功能主提交 `7499157` + 导出定位字段收紧）。收尾文档提交可以在其之后，不改变包内源码身份。当时 U1 pending，候选仅本地交付；以下是冻结历史产物，不代表当前发布状态。
 
 - 便携包：`work/reuse-delivery/final/history-viewer-1.3.0-rc.1.zip`，SHA-256 `21232aea84342c9788c81b6d0200e94c5320ec957322039d7b50f736469f529d`。
 - 合成试用包：`work/reuse-delivery/final/history-reuse-trial-1.3.0-rc.1.zip`，SHA-256 `1fb62066b96a19738eee835c61d162c8405cb62915b0996d1412f126718adfba`；只含 Codex 6 / Claude 6 合成会话，内置 TRIAL_TASKS.md。
 - [参与者任务单](trial/tasks.md) / [组织者观察与答案](trial/observer.md)。答案不随试用包提供。
-- 同目录 portable-install.json / trial-install.json / material-preflight.json 及 HTTP 基准保留原始证据；[acceptance.json](acceptance.json) 保存可随仓恢复的简要事实。构建时 manifest 的 material_preflight=not_run 是历史状态，外部预检记录为 passed；U1 始终 pending。
+- 同目录 portable-install.json / trial-install.json / material-preflight.json 及 HTTP 基准保留原始证据；[acceptance.json](acceptance.json) 保存可随仓恢复的简要事实。构建时 manifest 的 material_preflight=not_run 是历史状态，外部预检记录为 passed；该验收快照的 U1 为 pending，保留原样；当前已取消。
 
 再生：`python3 scripts/build_release.py --revision 0bb034b --output /新目录/portable.zip`；`python3 scripts/build_reuse_trial.py --revision 0bb034b --output /新目录/trial.zip`。产物目录不入 Git，不含真实历史与缓存。
 
 ## Remaining
 
-仅 U1 由用户安排；没有开放的工程阻断。未发布稳定版、未推送远端。
+本计划无开放工程阻断，U1 已取消。本次只提交源码与文档，不创建稳定发行或替换安装。仓库交付与保留项见 [收尾记录](agent-first-closeout.md)。
 
 ## Issues
 
@@ -33,4 +33,4 @@ Q17–Q20 自然语言改写未命中；原生库 ordinary provenance/文件追�
 
 ## Next
 
-用户安排未参与开发的 Linux 用户，使用下列合成试用包与任务单完成 U1；记录实际耗时和求助次数。临时服务器/浏览器已停，不留自动续跑。
+以具体 Agent 使用反馈推进检索和交接；不再安排 U1。既有测试入口与证据见 task_plan.md；未授权自动执行模型任务，不留自动续跑。

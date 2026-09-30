@@ -1,5 +1,6 @@
 """MiniMax Code v2 public transcript parser. Only two fixed sibling files read."""
 import json
+import io
 import re
 from pathlib import Path
 
@@ -15,6 +16,26 @@ def parse_mcode_session_file(path):
         raise ValueError('invalid_mcode_storage')
     # Do not resolve any paths advertised by the manifest or transcript.
     header = json.loads(manifest.read_text(encoding='utf-8'))
+    with path.open(encoding='utf-8') as stream:
+        return _parse_mcode_lines(stream, header, path)
+
+
+def parse_mcode_session_bytes(content, manifest_content, path):
+    """Parse the exact captured sibling-file bytes without opening any path."""
+    header = json.loads(manifest_content.decode('utf-8'))
+    return _parse_mcode_lines(io.StringIO(content.decode('utf-8')), header, path)
+
+
+def mcode_file_signature(messages_stat, manifest_stat):
+    """The existing cache signature, shared with revision-bound review reads."""
+    st, ms = messages_stat, manifest_stat
+    return json.dumps([st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_dev, st.st_ino,
+                       ms.st_mtime_ns, ms.st_ctime_ns, ms.st_size, ms.st_ino])
+
+
+def _parse_mcode_lines(stream, header, path):
+    if not isinstance(header, dict):
+        raise ValueError('invalid_mcode_manifest')
     sid = header.get('sessionId')
     if header.get('schemaVersion') != 2 and header.get('schemaVersion') != 1:
         raise ValueError('unsupported_mcode_manifest_version')
@@ -23,70 +44,92 @@ def parse_mcode_session_file(path):
     messages, seen = [], {}
     warnings = dict(malformed_lines=0, duplicate_messages=0, unknown_blocks=0, missing_timestamps=0)
     title = None
-    with path.open(encoding='utf-8') as stream:
-        for line_no, line in enumerate(stream, 1):
-            if not line.strip():
-                continue
-            try:
-                row = json.loads(line)
-                if not isinstance(row, dict) or not isinstance(row.get('message'), dict):
-                    raise ValueError()
-            except ValueError:
-                warnings['malformed_lines'] += 1
-                continue
-            mid = row.get('message_id')
-            if not isinstance(mid, str) or not mid:
-                warnings['malformed_lines'] += 1
-                continue
-            if mid in seen:
-                if seen[mid] != row:
-                    raise ValueError('conflicting_mcode_message_identity')
-                warnings['duplicate_messages'] += 1
-                continue
-            seen[mid] = row
-            msg = row['message']; role = msg.get('role')
-            ts = msg.get('timestamp')
-            ts = int(ts) if type(ts) in (int, float) and ts > 0 else None
-            if ts is None:
-                warnings['missing_timestamps'] += 1
-            ref = dict(line_no=line_no, message_id=mid)
-            turn = row.get('turn_id')
-            content = msg.get('content', [])
-            if not isinstance(content, list):
+    for line_no, line in enumerate(stream, 1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+            if not isinstance(row, dict) or not isinstance(row.get('message'), dict):
+                raise ValueError()
+        except ValueError:
+            warnings['malformed_lines'] += 1
+            continue
+        mid = row.get('message_id')
+        if not isinstance(mid, str) or not mid:
+            warnings['malformed_lines'] += 1
+            continue
+        if mid in seen:
+            if seen[mid] != row:
+                raise ValueError('conflicting_mcode_message_identity')
+            warnings['duplicate_messages'] += 1
+            continue
+        seen[mid] = row
+        msg = row['message']; role = msg.get('role')
+        ts = msg.get('timestamp')
+        ts = int(ts) if type(ts) in (int, float) and ts > 0 else None
+        if ts is None:
+            warnings['missing_timestamps'] += 1
+        ref = dict(line_no=line_no, message_id=mid)
+        turn = row.get('turn_id')
+        content = msg.get('content', [])
+        if not isinstance(content, list):
+            warnings['unknown_blocks'] += 1
+            continue
+        if role not in ('user', 'assistant', 'toolResult'):
+            # System/configuration messages are not public retrospective evidence.
+            continue
+        for block_index, block in enumerate(content):
+            if not isinstance(block, dict):
                 warnings['unknown_blocks'] += 1
                 continue
-            if role not in ('user', 'assistant', 'toolResult'):
-                # System/configuration messages are not public retrospective evidence.
+            kind = block.get('type')
+            call = msg.get('toolCallId')
+            out_role, out_kind = ('tool', 'tool_result') if role == 'toolResult' else (role, 'message')
+            if kind == 'text':
+                text = block.get('text')
+                text = _REMINDER.sub('', text).strip() if isinstance(text, str) else ''
+            elif kind == 'toolCall' and role == 'assistant':
+                out_role, out_kind = 'tool', 'tool_use'
+                call = block.get('id')
+                text = 'Tool call: %s\n%s' % (block.get('name', ''), json.dumps(block.get('arguments', {}), ensure_ascii=False))
+            elif kind in ('thinking', 'redactedThinking'):
                 continue
-            for block_index, block in enumerate(content):
-                if not isinstance(block, dict):
-                    warnings['unknown_blocks'] += 1
-                    continue
-                kind = block.get('type')
-                call = msg.get('toolCallId')
-                out_role, out_kind = ('tool', 'tool_result') if role == 'toolResult' else (role, 'message')
-                if kind == 'text':
-                    text = block.get('text')
-                    text = _REMINDER.sub('', text).strip() if isinstance(text, str) else ''
-                elif kind == 'toolCall' and role == 'assistant':
-                    out_role, out_kind = 'tool', 'tool_use'
-                    call = block.get('id')
-                    text = 'Tool call: %s\n%s' % (block.get('name', ''), json.dumps(block.get('arguments', {}), ensure_ascii=False))
-                elif kind in ('thinking', 'redactedThinking'):
-                    continue
-                else:
-                    warnings['unknown_blocks'] += 1
-                    continue
-                if not text:
-                    continue
-                text = redact_text(text)
-                messages.append(dict(ts_ms=ts, role=out_role, kind=out_kind, text=text,
-                    raw_ref=dict(ref, block_index=block_index), turn_id=turn, tool_call_id=call, tool_result_error=msg.get('isError') if role == 'toolResult' else None))
-                if title is None and out_role == 'user':
-                    title = text.splitlines()[0][:80]
+            else:
+                warnings['unknown_blocks'] += 1
+                continue
+            if not text:
+                continue
+            text = redact_text(text)
+            public = dict(ts_ms=ts, role=out_role, kind=out_kind, text=text,
+                raw_ref=dict(ref, block_index=block_index), turn_id=turn, tool_call_id=call, tool_result_error=msg.get('isError') if role == 'toolResult' else None)
+            if out_kind == 'tool_use':
+                public['tool_name'] = redact_text(block.get('name', ''))
+                # Preserve structured arguments for deterministic audit, using
+                # the same masking rules as the displayed message text.
+                public['tool_args'] = _redact_value(block.get('arguments', {}))
+            messages.append(public)
+            if title is None and out_role == 'user':
+                title = text.splitlines()[0][:80]
     times = [m['ts_ms'] for m in messages if m['ts_ms'] is not None]
     return dict(id=sid, file_path=str(path), start_ts_ms=min(times, default=0), end_ts_ms=max(times, default=0),
                 cwd=None, title=title or 'MiniMax Code session', message_count=len(messages), messages=messages,
                 search_blob='\n'.join(m['text'] for m in messages)[:2_000_000],
                 activity_metadata=dict(warnings=warnings, parent_session_id=header.get('parentSessionId'),
                                        identity_origin='manifest.sessionId', project_status='not_recorded'))
+
+
+def _redact_value(value):
+    if isinstance(value, str):
+        return redact_text(value)
+    if isinstance(value, dict):
+        # Masking the JSON representation also covers secret-named keys.
+        masked = redact_text(json.dumps(value, ensure_ascii=False))
+        try:
+            return json.loads(masked)
+        except ValueError:
+            # A numeric secret becomes an unquoted marker; keep that masked
+            # representation instead of ever restoring the original argument.
+            return masked
+    if isinstance(value, list):
+        return [_redact_value(item) for item in value]
+    return value

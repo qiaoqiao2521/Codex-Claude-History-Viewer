@@ -158,8 +158,6 @@ class HistoryReader:
         return res
 
     def handoff(self, session_id, *, include_plans=False):
-        if self.__source == 'mcode':
-            raise ValueError('mcode_handoff_unsupported_use_activity')
         if self.__indexer is None:
             raise ValueError('reader_closed')
         self.__check_root()

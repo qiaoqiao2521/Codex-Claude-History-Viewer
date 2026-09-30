@@ -19,6 +19,7 @@
       <button id="projectsTab" type="button" class="tab active" role="tab" aria-selected="true" aria-controls="projectsView">项目</button>
       <button id="searchTab" type="button" class="tab" role="tab" aria-selected="false" aria-controls="searchView" tabindex="-1">搜索历史</button>
     </nav>
+    <p class="review-entry"><button id="reviewStart" type="button" class="btn small">准备验收交接</button> <span class="muted">让一般模型先实现，再把需求原文交给高级模型对照当前代码验收。</span></p>
     <div id="reuseLayout" class="reuse-layout projects-home">
       <div class="reuse-main">
         <section id="searchView" role="tabpanel" aria-labelledby="searchTab" hidden>
@@ -55,7 +56,9 @@
       </div>
       <aside id="selectionPanel" class="selection-panel" aria-labelledby="selectionTitle" hidden>
         <div class="section-toolbar"><h2 id="selectionTitle">交接证据 <span id="selectionCount">0 / 5</span></h2><button id="selectionClear" type="button" class="btn small" disabled>清空</button></div>
-        <p class="muted">从会话中选择证据，核对预览后复制或下载。最多 5 条。</p>
+        <label for="selectionPurpose">交接用途</label>
+        <select id="selectionPurpose"><option value="handoff">继续工作</option><option value="review">高级模型验收</option></select>
+        <p id="selectionGuide" class="muted">从会话中选择证据，核对预览后复制或下载。最多 5 条。</p>
         <div id="selectionList"></div>
         <button id="selectionPreview" type="button" class="btn" disabled>生成交接预览</button>
         <p id="selectionStatus" class="muted" role="status" aria-live="polite"></p>
@@ -64,6 +67,22 @@
           <pre id="selectionMarkdown" tabindex="0" aria-label="交接 Markdown 预览"></pre>
           <div class="export-actions"><button id="selectionCopy" type="button" class="btn small">复制 Markdown</button><button id="selectionDownloadMd" type="button" class="btn small">下载 .md</button><button id="selectionDownloadJson" type="button" class="btn small">下载 .json</button></div>
         </section>
+        <details id="materialEditor" class="material-editor">
+          <summary>整理为公众号素材</summary>
+          <p class="muted">把所选片段整理成一件完成的事，可以来自多个会话。素材先留在本地，写成文章后再进入发布流程。</p>
+          <label for="materialTitle">素材标题</label><input id="materialTitle" maxlength="120" placeholder="例如：找回一次难复现的搜索故障">
+          <label for="materialResult">完成了什么（必填）</label><textarea id="materialResult" maxlength="2000" rows="3"></textarea>
+          <label for="materialProblem">原来的问题</label><textarea id="materialProblem" maxlength="2000" rows="2"></textarea>
+          <label for="materialSteps">关键过程与验证记录</label><textarea id="materialSteps" maxlength="3000" rows="3"></textarea>
+          <label for="materialLesson">可复用的经验</label><textarea id="materialLesson" maxlength="2000" rows="2"></textarea>
+          <button id="materialPreview" type="button" class="btn">预览素材</button>
+          <p id="materialStatus" class="muted" role="status" aria-live="polite"></p>
+          <section id="materialOutput" hidden aria-label="素材预览">
+            <p id="materialNotice" class="muted"></p><pre id="materialMarkdown" tabindex="0" aria-label="素材 Markdown 预览"></pre>
+            <p id="materialDestination" class="muted"></p>
+            <div class="export-actions"><button id="materialExport" type="button" class="btn primary" disabled>导出到素材目录</button><button id="materialDownload" type="button" class="btn">下载 .md</button></div>
+          </section>
+        </details>
       </aside>
     </div>
     <details id="sourcesDetails" class="sources-details">

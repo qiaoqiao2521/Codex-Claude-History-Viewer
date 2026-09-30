@@ -300,6 +300,35 @@ class LocalCliBootHttpTests(unittest.TestCase):
         except urllib.error.HTTPError as exc:
             with exc: return exc.code,json.load(exc)
 
+    def test_mcode_web_discovery_override_and_demo_isolation(self):
+        folder = self.home / '.minimax/v2/sessions/review'
+        folder.mkdir(parents=True)
+        manifest = folder / 'manifest.json'
+        messages = folder / 'messages.jsonl'
+        manifest.write_text(json.dumps({'schemaVersion': 2, 'sessionId': 'mcode-web'}))
+        messages.write_text(json.dumps({'message_id': 'u', 'message': {
+            'role': 'user', 'timestamp': 1790000000000,
+            'content': [{'type': 'text', 'text': 'mcode-web-needle requirement'}]}}) + '\n')
+        before = (manifest.read_bytes(), messages.read_bytes())
+        for args in ((), ('--mcode-sessions-dir', str(folder.parent))):
+            report = self.start(*args)
+            source = next(row for row in report['sources'] if row['source'] == 'mcode')
+            self.assertEqual(source['status'], 'ready', source)
+            self.assertEqual(source['count'], 1)
+            status, found = self.request('/api/reuse/search?q=mcode-web-needle&source=mcode')
+            self.assertEqual(status, 200)
+            self.assertEqual([row['id'] for row in found['items']], ['mcode-web'])
+            status, evidence = self.request('/api/reuse/evidence?system=linux&source=mcode&session=mcode-web')
+            self.assertEqual(status, 200, evidence)
+            self.assertEqual(evidence['provenance']['status'], 'captured')
+            self.assertIn('mcode-web-needle requirement', json.dumps(evidence['evidence']))
+            self.assertEqual(self.request('/api/linux/mcode/session/mcode-web/delete', {})[0], 405)
+            self.stop()
+        self.start('--demo', '--mcode-dir', str(folder.parents[2]), '--mcode-sessions-dir', str(folder.parent))
+        self.assertEqual(self.request('/api/reuse/search?q=mcode-web-needle&source=mcode')[1]['items'], [])
+        self.stop()
+        self.assertEqual(before, (manifest.read_bytes(), messages.read_bytes()))
+
     def test_default_discovery_search_projects_messages_and_diagnostics(self):
         report = self.start()
         health = {item['source']:item for item in report['sources']}

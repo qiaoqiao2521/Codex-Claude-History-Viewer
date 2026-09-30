@@ -757,6 +757,17 @@ def extract_session_audit(
     parsing problem is recorded in ``payload.parse_errors`` instead of raising
     (plan 13.5).
     """
+    if source == 'mcode':
+        # This format needs both fixed authority files; a lone JSONL byte stream
+        # cannot bind the manifest identity. Snapshot callers use mcode_review.
+        if content is not None:
+            raise ValueError('mcode_manifest_snapshot_required')
+        from history_core.mcode import parse_mcode_session_file
+        from history_core.mcode_review import build_mcode_audit
+        parsed = parse_mcode_session_file(path)
+        if session_id_hint is not None and parsed['id'] != str(session_id_hint):
+            raise ValueError('source_changed_since_index: manifest identity mismatch')
+        return build_mcode_audit(parsed)
     if source in ('gemini', 'pi', 'prime', 'copilot'):
         from .extra_sources import extract_extra_audit
         return extract_extra_audit(path, source, session_id_hint=session_id_hint, content=content)

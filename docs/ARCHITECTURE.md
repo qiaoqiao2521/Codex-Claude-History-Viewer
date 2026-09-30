@@ -30,7 +30,7 @@ A dependency-free Python HTTP server indexes local Agent histories into per-sour
 
 Linux source expansion uses `providers.py` for shared discovery/identity, `codebuddy.py` for native CBC envelopes, `extra_parsers.py` for Gemini recording updates and pi/Prime trees, and `copilot.py` for event logs. Gemini `.json` and `.jsonl` share one materializer; migrated copies are filtered. `zcode.py` reuses the OpenCode part/audit renderer with sequence ordering and a connection-local TEMP VIEW to project message metrics; it never changes the native schema. See [paths and capability matrix](local-cli-sources.md).
 
-`agy.py` decodes verified protobuf fields from AGY/Antigravity SQLite steps into a disposable in-memory session/message index. The two roots retain separate identities. Bounded DB/WAL copies are opened in private temporary directories because even SQLite `mode=ro` can update source SHM read marks. A refresh shares a physical read budget; source revisions fingerprint every conversation DB/WAL. Partial or unsupported legacy content is visible in coverage diagnostics, search warnings and session headers. Audit refs use native step indices, not fabricated JSONL lines; selected-fragment exports and token accounting remain unsupported.
+`agy.py` decodes verified protobuf fields from AGY/Antigravity SQLite steps into a disposable in-memory session/message index. The two roots retain separate identities. Bounded DB/WAL copies are opened in private temporary directories because even SQLite `mode=ro` can update source SHM read marks. A refresh shares a physical read budget; source revisions fingerprint every conversation DB/WAL. Partial or unsupported legacy content is visible in coverage diagnostics, search warnings and session headers. Audit refs use native step indices, not fabricated JSONL lines; fully decoded bounded sessions support selected public-message exports; partial/legacy exports and token accounting remain unsupported.
 
 ### Source routing and HTTP API
 
@@ -45,6 +45,8 @@ Audit schema version 4 revokes a previous final answer when later meaningful use
 ### Handoff layer
 
 `audit/handoff.py` builds compact or standard continuation capsules from deterministic audit data, selected user constraints, verification results, evidence locations, and explicit unknown current Git state unless separately requested. It intentionally excludes raw transcripts, hidden prompts, reasoning, and full tool output. The frontend renders the selected capsule as themed markdown (`.handoff-theme-*`), copies it as rich text, and exports `.md` / standalone themed `.html`.
+
+`history_core/review.py` adds a requirements-first review export on top of `evidence.selection_bundle`. `GET /api/reuse/review-requests` pages ordinary user messages with absolute indices and source/index revision checks; `POST /api/reuse/review-preview` requires a selected original user message and adds an independent current-code review prompt. The workspace previews/copies/downloads this packet without executing a model or probing the historical project path. Summaries cannot substitute for original requirements; code verification remains `not_performed`. See [workflow and limits](model-review-handoff.md).
 
 ### Usage aggregation
 
@@ -194,7 +196,7 @@ Gemini legacy JSON uses `/messages/<index>` pointers instead of invented line nu
 
 `evidence.py` assembles at most 5 selected summaries or indexed messages / 8000 body characters, rejects stale selections, masks common secret patterns and returns previewable Markdown/JSON. Bounded-prefix summaries and complete-message exports have distinct bindings. Masking is not full anonymization. `diagnostics.py` returns richer local-only source status and a separate allowlisted export, never paths or transcripts in that export. Indexing status avoids waiting on the index lock.
 
-Validation and source capability matrix: [reuse findings](../plans/history-reuse-product/findings.md). Fixed synthetic quality/performance tests do not replace U1 or native database performance measurements.
+Validation and source capability matrix: [reuse findings](../plans/history-reuse-product/findings.md). Fixed synthetic quality/performance tests do not establish native database performance or real-project Agent acceptance. U1 was cancelled by the user on 2026-10-01; current acceptance prioritizes headless retrieval and evidence-bound handoff.
 
 ## Project reader and settings
 
@@ -202,14 +204,22 @@ Validation and source capability matrix: [reuse findings](../plans/history-reuse
 
 `static/settings.js` synchronously creates one native dialog shared by both pages and owns its preference controls. It reuses existing theme/role storage keys, adds local reader preferences for text size, tool collapse and initial audit expansion, and notifies the reader through `hv-preferences-change`. Legacy listeners skip settings-owned controls. Source cards show configured paths and refresh existing derived indexes; changing source roots remains a launch-argument operation. The reader updates URL/history and selection identity across project, provider and insight links; stale responses cannot replace a newer navigation.
 
-当前文件索引的大小写、字面匹配与前三条摘录顺序见 [检索词法与摘录边界](search-semantics.md)；Unicode 大小写和跨消息短语排序不超出该声明。
-
 ## Conversation reading aids
 
 `related_sessions.py` annotates the bounded conversation candidate set before pagination. Only identical nonempty project paths and informative normalized titles qualify; groups preserve every original source/store/session identity and indicate possible relatedness, not task equivalence. Group counts describe the bounded candidate set and inherit its partial disclosure.
 
 `GET /api/reuse/key-messages` uses `conversation_navigation.py` over the existing message index. Full text is matched before cutting 240-character excerpts; absolute message numbering precedes context/tool-input exclusion. Up to 80 wording hints plus the first request and last ordinary assistant reply are returned, with explicit truncation/coverage limits. Source revision is required and checked before/after reading; native adapters without a compatible message index report unsupported. Hints are navigation, not verification of successful delivery. Reader deep links expand and rerender target tool results before scrolling.
 
+## Outcome materials
+
+`history_core/materials.py` builds deterministic draft Markdown from revision-checked `evidence.selection_bundle` and bounded user fields. `POST /api/reuse/material-preview` returns a preview revision; `/material-export` rechecks sources and requires that same revision. Optional `--material-dir` enables local exports. These endpoints accept loopback Host + same-origin JSON only. Atomic link publication never replaces an existing file: identical content is a no-op, human edits conflict, new revisions get distinct filenames. Selection identities define the material ID; field/evidence revisions define the immutable revision. Timestamps are excluded from the digest. Source locators containing filesystem paths are omitted, while session/evidence IDs and revision hashes remain. Common secrets and home-directory prefixes are masked, not guaranteed anonymized.
+
+The Markdown inbox is outside qiao-wechat's draft scanning workflow. It requires human fact/privacy review and article preparation before the existing publisher consumes it. No models or WeChat APIs are called. See [usage](materials.md).
+
+当前文件索引的大小写、字面匹配与前三条摘录顺序见 [检索词法与摘录边界](search-semantics.md)；Unicode 大小写和跨消息短语排序不超出该声明。
+
 ## Web daily evidence
 
 `history_core/web_briefing.py` reads verified message timestamps from the existing Web index using the activity IANA-local-day contract. GET/POST `/briefing` share schema `history.web-briefing.v2`; old whole-session audit ranking and cumulative tokens are excluded. Absolute message numbering precedes window filtering. Coverage stays unknown/partial because this path does not observe live recordings. See [daily activity](daily-activity.md).
+
+`native_review.py` captures AGY/ZCode public messages and fresh deterministic audit together, retaining reader indices across filtered private blocks. ZCode export reads a bounded private DB/WAL snapshot, with independent physical and selected-row limits. `mcode_review.py` captures and hashes both fixed authority files, verifies the cache projection/signature, and reuses the byte parser. `provenance.selected_review_snapshot` feeds selection and review-request pagination; ordinary `selected_snapshot` returns no raw row for these sources. mcode normal audit uses the same public-block events instead of the Codex fallback.

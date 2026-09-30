@@ -75,6 +75,41 @@ class ReuseHttpTests(unittest.TestCase):
         self.assertEqual(self.get('/api/reuse/selection',{'selections':[selection]})[0],409)
         self.assertEqual(self.get('/api/linux/codex/session/s/audit')[0],409)
 
+    def test_review_preview_requires_original_user_message_and_preserves_binding(self):
+        _, item = self.get('/api/reuse/evidence?system=linux&source=codex&session=s')
+        selection = {'system':'linux', 'source':'codex', 'session_id':'s',
+                     'content_revision':item['provenance']['content_revision']}
+        status, error = self.get('/api/reuse/review-preview', {'selections':[{**selection, 'message_index':1}]})
+        self.assertEqual(status, 400)
+        self.assertEqual(error['error'], 'review_requirement_required')
+        selected = [{**selection, 'message_index':i} for i in (0, 1)]
+        status, packet = self.get('/api/reuse/review-preview', {'selections':selected})
+        self.assertEqual(status, 200)
+        self.assertEqual(packet['schema_version'], 'history.review-packet.v1')
+        self.assertEqual(packet['code_verification'], 'not_performed')
+        self.assertEqual([x['locator']['role'] for x in packet['items']], ['user', 'assistant'])
+        self.assertIn('修复 SQLite locked', packet['markdown'])
+        self.assertEqual(self.path.read_bytes(), self.original)
+        self.path.write_bytes(self.original+b'\n')
+        self.assertEqual(self.get('/api/reuse/review-preview', {'selections':selected})[0], 409)
+
+    def test_review_request_page_is_revision_bound(self):
+        _, page = self.get('/api/reuse/search?q=SQLite')
+        _, item = self.get('/api/reuse/evidence?system=linux&source=codex&session=s')
+        params = {'system':'linux', 'source':'codex', 'session':'s', 'store_id':item['store_id'],
+                  'source_revision':page['items'][0]['source_revision'],
+                  'content_revision':item['provenance']['content_revision'], 'limit':1}
+        status, result = self.get('/api/reuse/review-requests?' + urlencode(params))
+        self.assertEqual(status, 200)
+        self.assertEqual(result['total'], 1)
+        self.assertEqual(result['items'][0]['message_index'], 0)
+        self.assertEqual(result['items'][0]['role'], 'user')
+        self.assertIsNone(result['next_offset'])
+        self.assertEqual(self.get('/api/reuse/review-requests?' + urlencode({**params, 'limit':100}))[0], 400)
+        self.path.write_bytes(self.original+b'\n')
+        self.idx.scan_sessions()
+        self.assertEqual(self.get('/api/reuse/review-requests?' + urlencode(params))[0], 409)
+
     def test_exact_raw_record_uses_line_reference_and_refuses_stale(self):
         _, item = self.get('/api/reuse/evidence?system=linux&source=codex&session=s')
         ref = next(x for x in item['evidence'] if x.get('line_no'))

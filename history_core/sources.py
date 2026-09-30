@@ -2040,8 +2040,8 @@ class Indexer:
                 if manifest.is_symlink():
                     raise ValueError('source_symlink_not_allowed')
                 ms = manifest.stat()
-                return json.dumps([st.st_mtime_ns, st.st_ctime_ns, st.st_size, st.st_dev, st.st_ino,
-                                   ms.st_mtime_ns, ms.st_ctime_ns, ms.st_size, ms.st_ino]), st.st_mtime
+                from .mcode import mcode_file_signature
+                return mcode_file_signature(st, ms), st.st_mtime
             return json.dumps([st.st_mtime_ns, st.st_ctime_ns, st.st_size,
                                st.st_dev, st.st_ino]), st.st_mtime
 
