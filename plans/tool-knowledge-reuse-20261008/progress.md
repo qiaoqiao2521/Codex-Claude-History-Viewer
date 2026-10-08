@@ -2,7 +2,7 @@
 
 ## Current
 
-工程验证和知识原页更新已完成；源码待根 Codex 串行提交、普通推送并核对远端。
+工程验证、知识原页更新与普通推送已完成；根 Codex 已核对两仓库的远端提交。
 
 ## Done
 
@@ -35,7 +35,13 @@
 
 ## Remaining
 
-- 源码精确暂存、普通推送与远端读回。
+本任务无剩余实现工作。既有本地材料的恢复入口和接续责任见 findings。
+
+## Delivery
+
+源码成果提交：`2f8328630459495399ce481eb38629d935ca318e`，已普通推送到 `qiaoqiao2521/Codex-Claude-History-Viewer` 的 main。GitHub API 读回 main SHA 与本地提交一致。仅暂存本轮 19 个已审阅文件；原始历史、运行日志、本地测量与禁提交 fixture 没有入库。
+
+知识库远端提交和 4 页内容哈希已在 Knowledge closeout 分别核对。共享规则与 skill 属于本机文件，保留修改前备份。此后仅追加本任务的完成记录，不改变已验证代码。
 
 ## Issues
 
@@ -45,4 +51,4 @@
 
 ## Next
 
-根 Codex 提交源码并核对普通推送。历史遗留的接续 owner 和最短入口已记录在 findings；本轮知识回写状态为 updated。
+本任务完成。下次工具借鉴从 `search --brief --limit 3` 进入，按需要展开公开证据；采用知识的任务收尾按四种结果记录。本轮知识回写状态为 updated。

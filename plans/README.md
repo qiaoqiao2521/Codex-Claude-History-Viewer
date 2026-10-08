@@ -1,6 +1,6 @@
 # Work index
 
-- **当前：工具借鉴与知识收尾**：[计划](tool-knowledge-reuse-20261008/task_plan.md) / [状态](tool-knowledge-reuse-20261008/progress.md)。结构化结果、公开证据摘录、无头精简候选与知识原页读回。
+- **已完成：工具借鉴与知识收尾**：[计划](tool-knowledge-reuse-20261008/task_plan.md) / [状态](tool-knowledge-reuse-20261008/progress.md)。结构化结果、公开证据摘录、无头精简候选与知识原页读回。
 
 - **已完成：AGY 整库累计上限修复**：[计划](agy-store-cap/task_plan.md) / [验证](agy-store-cap/progress.md)。不再因整库超过 256 MiB 拒绝初始化，保留逐会话限制和不完整覆盖披露。
 
