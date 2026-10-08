@@ -31,6 +31,7 @@ def main(argv=None):
     query.add_argument("--offset", type=int, default=0)
     query.add_argument("--project", default=None)
     query.add_argument("--index-revision", default=None, help="Previous page revision; required for offset > 0 in a new process")
+    query.add_argument("--brief", action="store_true", help="Return compact candidates and public excerpts for message-index sources")
     transfer = commands.add_parser("handoff")
     transfer.add_argument("session_id")
     transfer.add_argument("--include-plans", action="store_true", help="Explicitly include bounded project-file candidates; not verified decisions")
@@ -57,7 +58,7 @@ def main(argv=None):
         if args.command == "refresh":
             result = reader.refresh()
         elif args.command == "search":
-            result = reader.search(query=args.query, limit=args.limit, offset=args.offset, cwd=args.project, index_revision=args.index_revision)
+            result = reader.search(query=args.query, limit=args.limit, offset=args.offset, cwd=args.project, index_revision=args.index_revision, brief=args.brief)
         elif args.command == "handoff":
             result = reader.handoff(args.session_id, include_plans=args.include_plans)
         else:

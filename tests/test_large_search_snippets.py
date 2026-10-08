@@ -107,6 +107,12 @@ class LargeSearchSnippetTests(unittest.TestCase):
         self.assertLess(len(json.dumps(page)), 4000)
         self.assertFalse(page['partial'], 'short display excerpts do not mean incomplete recall')
 
+    def test_later_phrase_precedes_earlier_scattered_terms(self):
+        self.add_session('phrase', [(0, 'assistant', 'alpha precedes scattered beta'),
+                                    (1, 'assistant', 'alpha beta final explanation')])
+        snippets = self.search('alpha beta')['items'][0]['snippets']
+        self.assertEqual([item['message_index'] for item in snippets], [1, 0])
+
     def test_literal_percent_underscore_and_ascii_case_match_consistently(self):
         self.add_session('literal', [(1, 'assistant', '100%_Literal')])
         self.add_session('wildcard', [(1, 'assistant', '100XXLiteral')])
@@ -129,6 +135,57 @@ class LargeSearchSnippetTests(unittest.TestCase):
         item = self.search('系统')['items'][0]
         self.assertEqual([snippet['message_index'] for snippet in item['snippets']], [3])
         self.assertEqual(item['snippets'][0]['text'], '系统 real answer')
+
+    def test_cached_blob_and_nonpublic_records_cannot_recall_noise(self):
+        self.add_session('noise', [(n, 'assistant', 'noise_needle') for n in range(5)],
+                         blob='noise_needle')
+        with self.idx.conn:
+            for n, kind in enumerate(('context', 'context:memory', 'reasoning_summary',
+                                      'agent_reasoning', 'raw_json:event_msg:imported')):
+                self.idx.conn.execute('UPDATE messages SET kind=? WHERE session_id=? AND ts_ms=?',
+                                      (kind, 'noise', n))
+        self.add_session('public', [(0, 'system', 'noise_needle injected rules'),
+                                    (1, 'tool', 'noise_needle actual readback')],
+                         blob='noise_needle')
+        with self.idx.conn:
+            self.idx.conn.execute("UPDATE messages SET kind='tool_result' WHERE session_id='public' AND ts_ms=1")
+        page = self.search('noise_needle')
+        self.assertEqual([item['id'] for item in page['items']], ['public'])
+        self.assertEqual([item['message_index'] for item in page['items'][0]['snippets']], [1])
+        self.assertEqual(page['items'][0]['snippets'][0]['text'], 'noise_needle actual readback')
+
+    def test_nonpublic_record_cannot_supply_one_term_of_session_and_query(self):
+        self.add_session('planned', [(0, 'user', 'alpha visible request'),
+                                     (1, 'assistant', 'beta unexecuted thought')], blob='alpha beta')
+        with self.idx.conn:
+            self.idx.conn.execute("UPDATE messages SET kind='reasoning_summary' WHERE session_id='planned' AND ts_ms=1")
+        self.assertEqual(self.search('alpha beta')['items'], [])
+
+    def test_snippets_prefer_term_coverage_tools_and_later_user_messages(self):
+        messages = [(0, 'assistant', 'alpha beta early report'),
+                    (1, 'user', 'alpha beta original request'),
+                    (2, 'assistant', 'alpha beta private thought'),
+                    (3, 'tool', 'alpha beta verified readback'),
+                    (4, 'user', 'alpha beta later correction'),
+                    (5, 'assistant', 'alpha only later report')]
+        self.add_session('ranked', messages)
+        with self.idx.conn:
+            self.idx.conn.execute("UPDATE messages SET kind='reasoning_summary' WHERE session_id='ranked' AND ts_ms=2")
+            self.idx.conn.execute("UPDATE messages SET kind='tool_result' WHERE session_id='ranked' AND ts_ms=3")
+        snippets = self.search('alpha beta')['items'][0]['snippets']
+        self.assertEqual([item['message_index'] for item in snippets], [3, 4, 1])
+        for snippet in snippets:
+            original = self.idx.get_session_message('ranked', snippet['message_index'])
+            self.assertEqual(snippet['text'], original['text'])
+
+    def test_same_message_term_coverage_precedes_partial_tool_match(self):
+        self.add_session('coverage', [(0, 'tool', 'alpha command'),
+                                      (1, 'assistant', 'beta report'),
+                                      (2, 'assistant', 'beta and alpha final explanation')])
+        with self.idx.conn:
+            self.idx.conn.execute("UPDATE messages SET kind='tool_use' WHERE session_id='coverage' AND ts_ms=0")
+        snippets = self.search('alpha beta')['items'][0]['snippets']
+        self.assertEqual([item['message_index'] for item in snippets], [2, 0, 1])
 
     def test_snippet_sql_budget_interrupt_is_explicit_and_connection_recovers(self):
         self.add_session('budget', [(number, 'user', 'filler') for number in range(2005)]

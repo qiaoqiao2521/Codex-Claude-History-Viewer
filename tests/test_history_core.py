@@ -14,6 +14,40 @@ from history_core.sources import Indexer, parse_codex_session_file
 REPO = Path(__file__).resolve().parents[1]
 
 class HistoryCoreTests(unittest.TestCase):
+    def test_brief_cli_keeps_expandable_evidence_and_revision_without_audit_noise(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); source = root / 'sessions'; source.mkdir()
+            fixture = source / 'session.jsonl'
+            events = [
+                {'timestamp': '2026-10-08T00:00:00Z', 'type': 'session_meta', 'payload': {'id': 'brief-fixture', 'cwd': str(root)}},
+                {'timestamp': '2026-10-08T00:00:01Z', 'type': 'response_item', 'payload': {'type': 'message', 'role': 'user', 'content': [{'type': 'input_text', 'text': 'Find the useful renderer tool'}]}},
+                {'timestamp': '2026-10-08T00:00:02Z', 'type': 'response_item', 'payload': {'type': 'reasoning', 'summary': [{'type': 'summary_text', 'text': 'renderer speculative plan'}]}},
+                {'timestamp': '2026-10-08T00:00:03Z', 'type': 'response_item', 'payload': {'type': 'function_call', 'name': 'shell_command', 'call_id': 'fixture-call', 'arguments': json.dumps({'cmd': 'renderer --help'})}},
+                {'timestamp': '2026-10-08T00:00:04Z', 'type': 'response_item', 'payload': {'type': 'function_call_output', 'call_id': 'fixture-call', 'output': 'renderer supports readback'}},
+            ]
+            fixture.write_text('\n'.join(json.dumps(x) for x in events) + '\n')
+            before = fixture.read_bytes()
+            prefix = [sys.executable, '-B', '-m', 'history_core', '--source', 'codex', '--source-path', str(source), '--data-dir', str(root / 'cache')]
+            def call(*args):
+                out = subprocess.run(prefix + list(args), cwd=REPO, capture_output=True, text=True)
+                self.assertEqual(out.returncode, 0, out.stderr)
+                return json.loads(out.stdout)
+            call('refresh')
+            normal = call('search', '--query', 'renderer', '--limit', '3')
+            brief = call('search', '--query', 'renderer', '--limit', '3', '--brief')
+            self.assertEqual(brief['index_revision'], normal['index_revision'])
+            self.assertEqual(brief['freshness'], 'unknown')
+            self.assertEqual(brief['current_verification'], 'not_performed')
+            self.assertEqual(brief['source'], 'codex')
+            self.assertEqual(brief['items'][0]['id'], normal['items'][0]['id'])
+            self.assertNotIn('files_touched', brief['items'][0])
+            excerpts = brief['items'][0]['snippets']
+            self.assertTrue(any('renderer --help' in e['text'] and e['role'] == 'tool' for e in excerpts))
+            self.assertFalse(any('speculative' in e['text'] for e in excerpts))
+            tool_excerpt = next(e for e in excerpts if 'renderer --help' in e['text'])
+            self.assertEqual(tool_excerpt['message_index'], 2)
+            self.assertEqual(fixture.read_bytes(), before)
+
     def test_headless_import_has_no_web_or_app(self):
         result = subprocess.run([sys.executable, '-c',
             "import sys; import history_core.sources; assert 'app' not in sys.modules; assert 'http.server' not in sys.modules"],

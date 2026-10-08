@@ -43,6 +43,8 @@ Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56e
 
 ## Current Priority
 
+2026-10-08：[工具借鉴与知识收尾](plans/tool-knowledge-reuse-20261008/task_plan.md)。修复结构化工具结果和检索噪声，提供无头精简证据候选；知识入口按操作定位，收尾核对实际原页读回。源码、安装和历史覆盖分别验收。
+
 2026-10-01：**Agent 对接为主**。先检索与定位证据，再把原需求、后续纠正和选定片段交给接手模型核对当前代码；Web 保留人工查阅与预览。U1/M3 独立人类试用已取消，不再邀请、等待或阻塞交付；自动验收不冒充人类试用。
 
 2026-09-27 [相关会话归组与关键消息导航](plans/conversation-reading/task_plan.md)：专注 Agent 对话阅读，相关性仅作可解释线索，全部原会话/原文保留，关键节点绑定来源修订。源码及隔离浏览器验收完成；2026-09-28 随本提交归档，当时状态为“暂存待 U1”；2026-10-01 用户取消该试用门槛，现为工程完成，不发 rc.4、不替换现有安装。产品展示名定为 AgentTraceMesh（原 Codex & Claude History Viewer），技术兼容标识保留；不引入采样检索或第三方聚类运行时。

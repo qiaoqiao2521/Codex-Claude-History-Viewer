@@ -82,23 +82,32 @@ def _escape_sql_like(value):
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _indexed_body_match_sql(alias="sessions"):
-    """Two literal-LIKE parameters; aliases are internal SQL identifiers only.
+def _indexed_public_message_sql(alias="m"):
+    """Eligible indexed evidence; aliases are owned SQL identifiers, not input."""
+    kind = f"COALESCE({alias}.kind,'')"
+    return (
+        f"{alias}.role IN ('user','assistant','tool') "
+        f"AND {kind} NOT LIKE 'context%' AND {kind} NOT LIKE 'raw_json%' "
+        f"AND {kind} NOT LIKE '%reasoning%' AND {kind} <> 'thinking'"
+    )
 
-    The bounded blob is a fast path, not authoritative body coverage. Cached
-    messages also contain later text and raw-format fallbacks. Harness context
-    remains excluded from the fallback, as in the Codex parser's search blob.
+
+def _indexed_body_match_sql(alias="sessions"):
+    """One literal-LIKE parameter over complete public indexed messages.
+
+    Existing search blobs mix public text, reasoning and raw fallbacks. They
+    cannot authorize a hit without checking the message's role and kind.
     """
     return (
-        f"(COALESCE({alias}.search_blob,'') LIKE ? ESCAPE '\\' OR EXISTS ("
+        "EXISTS ("
         f"SELECT 1 FROM messages search_message WHERE search_message.session_id={alias}.id "
-        "AND COALESCE(search_message.kind,'') <> 'context' "
-        "AND search_message.text LIKE ? ESCAPE '\\'))"
+        f"AND {_indexed_public_message_sql('search_message')} "
+        "AND search_message.text LIKE ? ESCAPE '\\')"
     )
 
 
 def _indexed_session_match_sql(alias="sessions"):
-    """Shared title, project, blob and full-message matching (four parameters)."""
+    """Shared title, project and public full-message matching (three parameters)."""
     return (
         f"(COALESCE({alias}.title,'') LIKE ? ESCAPE '\\' "
         f"OR COALESCE({alias}.cwd,'') LIKE ? ESCAPE '\\' "
@@ -606,6 +615,162 @@ def _codex_format_tool_use(name, call_id=None, raw_input=None, *, is_custom=Fals
     return "\n".join(lines).strip()
 
 
+def _codex_normalize_tool_result(raw_output):
+    """Read known text envelopes once for both expanded and collapsed results.
+
+    Binary content is represented by a marker. Unknown shapes stay explicit;
+    the source line remains available for inspection without guessing a schema.
+    """
+    parts, exit_codes, error_flags, wall_times = [], [], [], []
+    text_keys = {"output", "text", "content", "metadata", "exit_code", "status", "is_error", "isError", "error"}
+    media_kinds = {"image", "image_url", "input_image", "output_image", "audio", "input_audio", "output_audio", "video"}
+    text_kinds = {"text", "input_text", "output_text"}
+
+    def is_envelope(value, depth=0):
+        if depth > 20:
+            return True  # collect() will expose the bounded fallback.
+        if isinstance(value, dict):
+            kind = value.get("type")
+            return (bool(set(value) & {"output", "text", "content", "metadata"})
+                    or (isinstance(kind, str) and kind in media_kinds | {"resource"}))
+        return isinstance(value, list) and any(is_envelope(item, depth + 1) for item in value)
+
+    def media_safe(value, depth=0):
+        """Preserve application JSON fields while omitting binary media values."""
+        if depth > 20:
+            return "[unsupported tool output: nesting limit]", True
+        if isinstance(value, dict):
+            kind = value.get("type")
+            if isinstance(kind, str) and kind in media_kinds:
+                return f"[{kind} content omitted]", True
+            resource = value.get("resource")
+            if kind == "resource" and isinstance(resource, dict) and "blob" in resource:
+                return "[resource content omitted]", True
+            result, changed = {}, False
+            for key, item in value.items():
+                result[key], omitted = media_safe(item, depth + 1)
+                changed = changed or omitted
+            return result, changed
+        if isinstance(value, list):
+            result, changed = [], False
+            for item in value:
+                safe, omitted = media_safe(item, depth + 1)
+                result.append(safe)
+                changed = changed or omitted
+            return result, changed
+        if isinstance(value, str) and value.startswith("data:") and ";base64," in value:
+            return "[encoded media content omitted]", True
+        return value, False
+
+    def media_safe_text(value, depth):
+        text = value.strip("\n")
+        parsed = _codex_try_parse_json(text)
+        safe, omitted = media_safe(parsed if parsed is not None else text, depth)
+        if omitted:
+            return json.dumps(safe, ensure_ascii=False, indent=2) if parsed is not None else safe
+        return text
+
+    def metadata(value):
+        code = value.get("exit_code")
+        if isinstance(code, (int, float)) and not isinstance(code, bool):
+            try:
+                exit_codes.append(int(code))
+            except (ValueError, OverflowError):
+                pass
+        for key in ("is_error", "isError"):
+            if isinstance(value.get(key), bool):
+                error_flags.append(value[key])
+        error = value.get("error")
+        if error:
+            error_flags.append(True)
+        status = value.get("status")
+        if status in ("error", "failed", "failure"):
+            error_flags.append(True)
+        elif status in ("ok", "success", "succeeded"):
+            error_flags.append(False)
+        duration = value.get("duration_seconds", value.get("wall_time_seconds"))
+        if isinstance(duration, (int, float)) and not isinstance(duration, bool):
+            wall_times.append(f"{duration:.3f}s")
+
+    def collect(value, depth=0, *, body=False):
+        if value is None or value == "":
+            return
+        if depth > 20:
+            parts.append("[unsupported tool output: nesting limit]")
+            return
+        if isinstance(value, str):
+            # A textual body is opaque application output, even when it looks
+            # like a JSON result envelope. Only redact recognized media bytes.
+            if body:
+                text = media_safe_text(value, depth + 1)
+                if text.strip():
+                    parts.append(text)
+                return
+            parsed = _codex_try_parse_json(value)
+            if is_envelope(parsed):
+                collect(parsed, depth + 1)
+                return
+            exit_codes.extend(int(code) for code in re.findall(r"^Exit code:\s*(-?\d+)\s*$", value, re.M))
+            match = re.search(r"^Wall time:\s*(.+?)\s*$", value, re.M)
+            if match:
+                wall_times.append(match.group(1).strip())
+            text = media_safe_text(value.split("\nOutput:\n", 1)[-1], depth + 1)
+            if text.strip():
+                parts.append(text)
+            return
+        if isinstance(value, list):
+            for item in value:
+                collect(item, depth + 1, body=body)
+            return
+        if isinstance(value, dict):
+            kind = value.get("type")
+            if not body:
+                metadata(value)
+                meta = value.get("metadata")
+                if isinstance(meta, dict):
+                    metadata(meta)
+            if isinstance(kind, str) and kind in media_kinds:
+                parts.append(f"[{kind} content omitted]")
+                return
+            if kind == "resource" and isinstance(value.get("resource"), dict):
+                resource = value["resource"]
+                if isinstance(resource.get("text"), str):
+                    collect(resource["text"], depth + 1, body=True)
+                else:
+                    parts.append("[resource content omitted]")
+                return
+            if body:
+                if isinstance(kind, str) and kind in text_kinds and isinstance(value.get("text"), str):
+                    collect(value["text"], depth + 1, body=True)
+                else:
+                    safe, _ = media_safe(value, depth + 1)
+                    parts.append(json.dumps(safe, ensure_ascii=False, indent=2))
+                return
+            known = bool(set(value) & text_keys)
+            for key in ("output", "text", "content"):
+                if value.get(key) is not None and value[key] != "" and value[key] != []:
+                    collect(value[key], depth + 1, body=True)
+                    break
+            error = value.get("error")
+            error_text = error.get("message") if isinstance(error, dict) else error
+            if isinstance(error_text, str) and error_text and error_text not in parts:
+                collect(error_text, depth + 1, body=True)
+            if not known:
+                parts.append("[unsupported tool output: object]")
+            return
+        parts.append(f"[unsupported tool output: {type(value).__name__}]")
+
+    collect(raw_output)
+    # A wrapper may contain several command results. Preserve any explicit
+    # failure rather than allowing a later successful result to hide it.
+    exit_code = next((code for code in exit_codes if code != 0), exit_codes[-1] if exit_codes else None)
+    is_error = any(error_flags) or any(code != 0 for code in exit_codes)
+    status = "error" if is_error else "ok" if exit_codes or error_flags else None
+    return {"body": "\n".join(parts), "exit_code": exit_code,
+            "wall_time": wall_times[0] if wall_times else None, "is_error": is_error,
+            "exit_status": status}
+
+
 def _codex_format_tool_result(tool_name=None, call_id=None, raw_output=None):
     tool_label = str(tool_name).strip() if tool_name else ""
     header = f"Tool result: {tool_label}" if tool_label else "Tool result:"
@@ -613,47 +778,19 @@ def _codex_format_tool_result(tool_name=None, call_id=None, raw_output=None):
     if call_id:
         lines.append(f"Call ID: {call_id}")
 
-    exit_code = None
-    wall_time = None
-    body = None
-
-    if isinstance(raw_output, str):
-        parsed = _codex_try_parse_json(raw_output)
-        if isinstance(parsed, dict) and ("output" in parsed or "metadata" in parsed):
-            meta = parsed.get("metadata")
-            if isinstance(meta, dict):
-                code = meta.get("exit_code")
-                if isinstance(code, (int, float)):
-                    exit_code = int(code)
-                dur = meta.get("duration_seconds")
-                if isinstance(dur, (int, float)):
-                    wall_time = f"{dur:.3f}s"
-            out = parsed.get("output")
-            if isinstance(out, str):
-                body = out.strip("\n")
-            elif out is not None:
-                body = json.dumps(out, ensure_ascii=False, indent=2)
-        else:
-            m = re.search(r"^Exit code:\\s*(-?\\d+)\\s*$", raw_output, re.M)
-            if m:
-                exit_code = int(m.group(1))
-            m = re.search(r"^Wall time:\\s*(.+?)\\s*$", raw_output, re.M)
-            if m:
-                wall_time = m.group(1).strip()
-            if "\nOutput:\n" in raw_output:
-                _, body_part = raw_output.split("\nOutput:\n", 1)
-                body = body_part.strip("\n")
-            else:
-                body = raw_output.strip("\n")
-
+    result = _codex_normalize_tool_result(raw_output)
+    exit_code, wall_time, body = result["exit_code"], result["wall_time"], result["body"]
+    if result["exit_status"]:
+        lines.append(f"Status: {result['exit_status']}")
     if exit_code is not None:
-        lines.append("Status: ok" if exit_code == 0 else "Status: error")
         lines.append(f"Exit code: {exit_code}")
     if wall_time:
         lines.append(f"Wall time: {wall_time}")
     if isinstance(body, str) and body.strip():
         lines.append("Output:")
         lines.append(f"````\n{body.rstrip()}\n````")
+    else:
+        lines.append("Output: [empty tool output]")
 
     return "\n".join(lines).strip()
 
@@ -815,37 +952,10 @@ def _codex_summarize_tool_use(name, raw_input=None, *, is_custom=False):
 
 def _codex_summarize_tool_result(tool_name=None, raw_output=None):
     s = _empty_tool_summary(tool_name or "tool")
-    if not isinstance(raw_output, str) or not raw_output.strip():
-        return s
-    parsed = _codex_try_parse_json(raw_output)
-    exit_code = None
-    body = None
-    if isinstance(parsed, dict) and ("output" in parsed or "metadata" in parsed):
-        meta = parsed.get("metadata")
-        if isinstance(meta, dict):
-            code = meta.get("exit_code")
-            if isinstance(code, (int, float)):
-                exit_code = int(code)
-        out = parsed.get("output")
-        if isinstance(out, str):
-            body = out.strip("\n")
-        elif out is not None:
-            body = json.dumps(out, ensure_ascii=False)
-    else:
-        m = re.search(r"^Exit code:\s*(-?\d+)\s*$", raw_output, re.M)
-        if m:
-            exit_code = int(m.group(1))
-        if "\nOutput:\n" in raw_output:
-            _, body_part = raw_output.split("\nOutput:\n", 1)
-            body = body_part.strip("\n")
-        else:
-            body = raw_output.strip("\n")
-    if exit_code is not None:
-        s["exit_code"] = exit_code
-        s["exit_status"] = "ok" if exit_code == 0 else "error"
-        s["is_error"] = exit_code != 0
-    if body:
-        s["output_preview"] = _truncate_str(body, 200)
+    result = _codex_normalize_tool_result(raw_output)
+    s.update({key: result[key] for key in ("exit_code", "exit_status", "is_error")})
+    if result["body"]:
+        s["output_preview"] = _truncate_str(result["body"], 200)
     return s
 
 
@@ -1118,8 +1228,15 @@ def parse_codex_session_file(path: Path):
                         name = tool_names.get(call_id)
                         if name == "update_plan":
                             continue
-                        raw_output = payload.get("output")
+                        raw_output = payload.get("output") if "output" in payload else payload.get("content")
+                        # Some recordings put status beside output/content.
+                        result_metadata = {key: payload[key] for key in (
+                            "metadata", "exit_code", "status", "is_error", "isError", "error",
+                            "duration_seconds", "wall_time_seconds") if key in payload}
+                        if result_metadata:
+                            raw_output = {**result_metadata, "output": raw_output}
                         text = _codex_format_tool_result(name, call_id=call_id, raw_output=raw_output)
+                        summary = _codex_summarize_tool_result(name, raw_output=raw_output)
                         if text:
                             messages.append({
                                 "ts_ms": ts_ms,
@@ -1128,7 +1245,8 @@ def parse_codex_session_file(path: Path):
                                 "kind": "tool_result",
                                 "tool_call_id": call_id,
                                 "text": text,
-                                "tool_summary": _codex_summarize_tool_result(name, raw_output=raw_output),
+                                "tool_summary": summary,
+                                **({"tool_result_error": summary["is_error"]} if summary["exit_status"] else {}),
                             })
                             add_search(text)
                     else:
@@ -2282,7 +2400,7 @@ class Indexer:
         for term in terms:
             sql += " AND " + _indexed_session_match_sql()
             like = "%" + _escape_sql_like(term) + "%"
-            args.extend([like] * 4)
+            args.extend([like] * 3)
         sql += order_clause + " LIMIT ?"
         args.append(int(limit))
 
@@ -2330,7 +2448,7 @@ class Indexer:
         for term in terms:
             where_sql += " AND " + _indexed_session_match_sql()
             like = "%" + _escape_sql_like(term) + "%"
-            args.extend([like] * 4)
+            args.extend([like] * 3)
 
         select_sql = (
             "SELECT id, start_ts_ms, end_ts_ms, title, message_count, cwd, pinned, "

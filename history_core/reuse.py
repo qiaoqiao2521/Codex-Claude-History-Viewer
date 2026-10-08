@@ -16,7 +16,8 @@ import time
 from . import service
 from .evidence import source_store_id
 from .sources import (_escape_sql_like, _indexed_body_match_sql,
-                      _indexed_session_match_sql, deserialize_audit_summary)
+                      _indexed_session_match_sql, _indexed_public_message_sql,
+                      deserialize_audit_summary)
 from .providers import SOURCES, canonical_source, uses_message_index
 
 MAX_CANDIDATES = 500
@@ -178,7 +179,7 @@ def _candidates(idx, query='', project=None, start_ms=None, end_ms=None, file_pa
         fields = 's.id,s.title,s.cwd,s.start_ts_ms,s.end_ts_ms,s.message_count,s.files_touched_json,s.outcome_signal,s.tool_summary_json,s.command_intents_json,s.remote_context_json,s.value_score,s.friction_score,s.action_density'
         def match(term):
             like = '%' + _escape_sql_like(term) + '%'
-            args.extend([like]*4)
+            args.extend([like]*3)
             return _indexed_session_match_sql('s')
     elif idx.source == 'hermes':
         title, cwd, timestamp, table = "COALESCE(s.title,'')", "''", 'COALESCE(s.ended_at,s.started_at)*1000', 'sessions s'
@@ -203,7 +204,7 @@ def _candidates(idx, query='', project=None, start_ms=None, end_ms=None, file_pa
             rank_args.append(term)
         if not native:
             rank += f' + CASE WHEN {_indexed_body_match_sql("s")} THEN 4 ELSE 0 END'
-            rank_args.extend(['%' + _escape_sql_like(query) + '%'] * 2)
+            rank_args.append('%' + _escape_sql_like(query) + '%')
         rank += ')'
     predicates = [match(term) for term in terms]
     if project is not None:
@@ -223,7 +224,7 @@ def _candidates(idx, query='', project=None, start_ms=None, end_ms=None, file_pa
 
 
 def _indexed_snippets(idx, sid, query, terms):
-    """Locate full indexed text in SQLite; return only three short excerpts.
+    """Rank public message evidence, then return three short excerpts.
 
     Number before filtering so deep links keep the reader's timestamp/id order.
     The window contains IDs only, not copies of arbitrarily long message bodies.
@@ -233,27 +234,37 @@ def _indexed_snippets(idx, sid, query, terms):
         return [], False
     text = "COALESCE(m.text,'')"
     occurrence = f'instr(lower({text}),lower(?))'
-    # Prefer the full phrase; otherwise show the earliest individual query term.
-    term_position = f'CASE WHEN {occurrence}>0 THEN {occurrence} ELSE length({text})+1 END'
-    first_term = term_position if len(terms) == 1 else 'min(' + ','.join([term_position] * len(terms)) + ')'
-    position = f'CASE WHEN {occurrence}>0 THEN {occurrence} ELSE {first_term} END'
-    predicate = ' OR '.join([f'{occurrence}>0'] * len(terms))
+    hits = [f'hit_{n}' for n in range(len(terms))]
+    term_columns = ','.join(f'{occurrence} AS {hit}' for hit in hits)
+    coverage = ' + '.join(f'({hit}>0)' for hit in hits)
+    term_positions = [f'CASE WHEN {hit}>0 THEN {hit} ELSE body_chars+1 END' for hit in hits]
+    first_term = term_positions[0] if len(hits) == 1 else 'min(' + ','.join(term_positions) + ')'
+    position = f'CASE WHEN phrase_position>0 THEN phrase_position ELSE {first_term} END'
+    predicate = ' OR '.join(f'{hit}>0' for hit in hits)
     sql = f'''
         WITH ordered AS (
             SELECT id, ROW_NUMBER() OVER (ORDER BY ts_ms ASC,id ASC)-1 AS message_index
             FROM messages WHERE session_id=?
+        ), located AS MATERIALIZED (
+            SELECT o.id,o.message_index,m.role,m.kind,length({text}) AS body_chars,
+                   {occurrence} AS phrase_position,{term_columns}
+            FROM ordered o JOIN messages m ON m.id=o.id
+            WHERE {_indexed_public_message_sql('m')}
+        ), matches AS (
+            SELECT *,({coverage}) AS matched_terms,{position} AS match_position
+            FROM located WHERE {predicate}
         )
-        SELECT o.message_index,m.role,
-               substr({text},max(1,({position})-70),240) AS text,
+        SELECT r.message_index,r.role,
+               substr({text},max(1,r.match_position-70),240) AS text,
                length({text})>240 AS truncated
-        FROM ordered o JOIN messages m ON m.id=o.id
-        WHERE COALESCE(m.kind,'') <> 'context' AND ({predicate})
-        ORDER BY o.message_index ASC LIMIT 3
+        FROM matches r JOIN messages m ON m.id=r.id
+        ORDER BY r.matched_terms DESC,(r.phrase_position>0) DESC,
+                 CASE WHEN r.role='tool' AND r.kind IN ('tool_use','tool_result') THEN 2
+                      WHEN r.role='user' THEN 1 ELSE 0 END DESC,
+                 CASE WHEN r.role='user' THEN r.message_index ELSE 0 END DESC,
+                 r.message_index ASC LIMIT 3
     '''
-    args = [sid, query, query]
-    for term in terms:
-        args.extend([term, term])
-    args.extend(terms)
+    args = [sid, query, *terms]
     with query_budget(idx) as conn:
         rows = conn.execute(sql, args).fetchall()
     return [dict(message_index=row['message_index'], role=row['role'], text=row['text'],

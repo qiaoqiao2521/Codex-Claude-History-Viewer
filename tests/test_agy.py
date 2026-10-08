@@ -121,6 +121,26 @@ class AgyTests(unittest.TestCase):
         self.assertNotIn('MUST NOT GUESS', data['search_blob'])
         self.assertIn('full text is incomplete', data['search_blob'])
 
+    def test_brief_search_keeps_partial_content_warning_without_raw_steps(self):
+        from history_core import service
+        self.write([(14, 3, 0, step(14, blob(1, 'needle in public text'))),
+                    (999, 3, 0, step(999, blob(1, 'UNDECODED PRIVATE BYTES')))])
+        before = self.fingerprints()
+        reader = self.reader()
+        result = service.search(reader, query='needle', brief=True)
+        self.assertTrue(result['partial'])
+        self.assertEqual(result['content_warnings'], [{'source': 'agy', 'incomplete_sessions': 1}])
+        candidate = result['items'][0]
+        self.assertEqual(candidate['content_status'], 'partial_unsupported_steps')
+        self.assertEqual(candidate['unsupported_steps_count'], 1)
+        self.assertTrue(candidate['snippets_partial'])
+        self.assertNotIn('unsupported_steps', candidate)
+        self.assertNotIn('UNDECODED PRIVATE BYTES', json.dumps(result))
+        missing = service.search(reader, query='not-present', brief=True)
+        self.assertEqual(missing['items'], [])
+        self.assertTrue(missing['partial'], 'No match cannot imply full coverage of undecoded content')
+        self.assertEqual(before, self.fingerprints())
+
     def test_legacy_protobuf_is_metadata_only_without_reading_contents(self):
         path = self.write([], extension='.pb')
         with patch.object(Path, 'read_bytes', side_effect=AssertionError('legacy content must not be read')):

@@ -5,11 +5,39 @@ from audit.handoff import build_handoff_bundle
 from .provenance import selected_audit, validate_native_size
 
 
-def search(indexer, *, query=None, limit=20, offset=0, cwd=None, stable_order=False):
+def search(indexer, *, query=None, limit=20, offset=0, cwd=None, stable_order=False, brief=False):
     if not 1 <= limit <= 100 or offset < 0:
         raise ValueError("invalid_pagination")
     kwargs = {"stable_order": True} if stable_order else {}
-    return indexer.list_sessions_page(q=query, limit=limit, offset=offset, cwd=cwd, sort="last", **kwargs)
+    if brief:
+        from .providers import uses_message_index
+        if not uses_message_index(indexer):
+            raise ValueError('brief_evidence_source_unsupported')
+    result = indexer.list_sessions_page(q=query, limit=limit, offset=offset, cwd=cwd, sort="last", **kwargs)
+    if not brief:
+        return result
+    from .reuse import _snippets
+    from .evidence import redact_text
+    items = []
+    for row in result['items']:
+        snippets, partial = _snippets(indexer, row['id'], query or '')
+        candidate = {key: row.get(key) for key in ('id', 'title', 'cwd', 'start_ts_ms', 'end_ts_ms')}
+        if 'content_status' in row:
+            candidate['content_status'] = row['content_status']
+            candidate['unsupported_steps_count'] = len(row.get('unsupported_steps') or [])
+            partial = partial or row['content_status'] != 'decoded_text'
+        for key in ('title', 'cwd'):
+            if isinstance(candidate[key], str):
+                candidate[key] = redact_text(candidate[key])
+        candidate.update(snippets=[dict(s, text=redact_text(s['text'])) for s in snippets], snippets_partial=partial)
+        items.append(candidate)
+    incomplete = sum(entry.get('content_status') != 'decoded_text'
+                     for entry in getattr(indexer, '_coverage', {}).values())
+    compact = dict(result, items=items, mode='brief',
+                   partial=bool(result.get('partial') or incomplete or any(item['snippets_partial'] for item in items)))
+    if incomplete:
+        compact['content_warnings'] = [{'source': indexer.source, 'incomplete_sessions': incomplete}]
+    return compact
 
 
 def audit_handoff(indexer, session_id):

@@ -61,12 +61,21 @@ class LargeSessionSearchTests(unittest.TestCase):
         self.assertEqual(self.idx.search_session_messages('large', '后置系统')['match_count'], 1)
         self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(), digest)
 
-    def test_raw_fallback_is_searchable_but_harness_context_stays_excluded(self):
+    def test_raw_fallback_and_harness_context_do_not_recall_public_evidence(self):
         self.seed('raw', [('raw_json:event_msg:imported', '双千兆 fallbackneedle')])
         self.seed('context', [('context', '双千兆 contextonly')])
-        self.assert_search_ids('双千兆', ['raw'])
-        self.assert_search_ids('fallbackneedle', ['raw'])
+        self.assert_search_ids('双千兆', [])
+        self.assert_search_ids('fallbackneedle', [])
         self.assert_search_ids('contextonly', [])
+
+    def test_old_blob_cannot_recall_thinking_and_system_records(self):
+        for sid, kind in [('thought', 'reasoning_summary'), ('thinking', 'thinking'),
+                          ('raw', 'raw_json:unknown'), ('context', 'context:memory')]:
+            self.seed(sid, [(kind, 'noise_only')], blob='noise_only')
+        self.seed('system', [('message', 'noise_only')], blob='noise_only')
+        with self.idx.conn:
+            self.idx.conn.execute("UPDATE messages SET role='system' WHERE session_id='system'")
+        self.assert_search_ids('noise_only', [])
 
     def test_literal_wildcards_and_backslash_do_not_broaden_search(self):
         self.seed('literal', [('message', r'100% disk_a path\leaf')])
