@@ -25,6 +25,16 @@ python3 -m history_core --source codebuddy --source-path ~/.codebuddy/projects -
 python3 -m history_core --source zcode --source-path ~/.zcode/cli/db/db.sqlite search --query error
 ```
 
+For tool reuse, indexed sources support `search --brief --limit 3`. Expand selected public messages with the returned index revision:
+
+```bash
+python3 -m history_core --source codex --source-path ~/.codex/sessions --data-dir ~/.cache/cchv-reader message SESSION_ID MESSAGE_INDEX --index-revision INDEX_REVISION
+```
+
+Continue only needed text pages with `--text-offset NEXT_TEXT_OFFSET`. The [search contract](search-semantics.md) defines bounds, redaction, pairing, and coverage warnings.
+
+Codex and Claude expose recorded skill/output-style tags through `markers`. See [marker evidence and CLI](trace-markers.md); tags do not assess effectiveness.
+
 ## Evidence boundaries
 
 CodeBuddy supports native tool audit and explicit file-change records. Gemini, pi/Prime and Copilot provide normalized conversation/tool audit and revision-bound handoff; their file diff reconstruction is not yet supported. JSON evidence uses a message JSON pointer; JSONL uses the original line. Gemini/pi/Prime/Copilot materialization requires a complete document within the 2 MiB selected-evidence limit; larger histories stay searchable but bounded handoff explicitly rejects them.

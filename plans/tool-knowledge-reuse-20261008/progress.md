@@ -2,9 +2,37 @@
 
 ## Current
 
-工程验证、知识原页更新与普通推送已完成；根 Codex 已核对两仓库的远端提交。
+2026-10-10：代码、公共 CLI/Python 接口、原页修订和读回已验证；根 Codex 正在普通提交推送与远端核对。下文 2026-10-08 的验证保留为前轮事实。
 
-## Done
+## 2026-10-10 Recheck
+
+- 修复 brief 候选排序、完整短正文、有界 Call ID 输入/结果关联及独立错误状态；默认 search 排序保持兼容。
+- `message` 用 search 的同一修订直接分页展开；完整选中消息先识别秘密范围再输出等长遮罩窗口，空字符与长 Call ID 边界已验证。
+- 修复内层失败被外层元数据覆盖、stdout 误判退出码、原生业务 JSON 丢字段与畸形 Call ID 崩溃；正式旧缓存公开刷新恢复正文及状态。
+- 按用户最终确认新增 `markers`：Learning 指令注入、原生 Skill 请求、Agent 声明分别标记；按名称、会话与录制工作目录查定位，不取隐藏正文、不新建表或反馈数据库、不评价作用。
+- Codex parser v8、Claude v6；公开刷新恢复旧缓存标记。Claude 混合 hook 内容逐元素定位，Codex 缺失新 turn ID 不沿用旧值。
+- 误扩的新 skill 草稿已从默认库撤出；没有安装、helper 或反馈数据库。现有 tracemesh-recall 正文恢复 0.4.1。共享 AGENTS 只增加用户确认的日志标记约定，Claude/Codex 原有入口均使用它。
+
+## 2026-10-10 Verification
+
+- `PYTHONPATH=tests:. python3 -B -m unittest discover -s tests -p 'test_*.py' -q`：649 项通过，1 项既有跨仓 reader 配置跳过。
+- workspace JS、tool-collapse 18/18 与 diff 检查通过。76 个受影响项目 Markdown 相对链接、28 个知识页 wikilink/锚点通过。
+- 独立审查报告的解析、分页脱敏、巨大 Call ID 和两处 marker 归因缺陷均先复现后修复，公共 Reader/CLI 回归通过；源录制字节保持只读。
+- 所选当前 Codex 录制读回 4 个 Learning 注入标记与 1 个 Agent 声明。第一次活跃文件前后哈希不稳定；后续有界核对源字节不变，不推广为全库捕获。
+
+## 2026-10-10 Knowledge closeout
+
+状态：`updated`。根 Codex 串行修订 canonical 原页，并将本轮 delta 应用到 fresh origin/main 的隔离工作树。4 页已实际读回，28 个链接/锚点已核对，交付哈希留在本机缓存。
+
+- `Wiki/开发知识入口.md`：工具配对、直接消息展开及技能/插件日志标记路由；浏览器入口同步插件优先。
+- `Wiki/开发协作接入.md`：“规划时”一次有界查询四项；“执行中”现有对话标记与后续 Agent 的职责。
+- `Wiki/自动化开发范式与智能体协作.md`：“历史工具检索”“技能触发日志”“解析、索引与知识回写分别验收”；保留原有主题。
+- `Wiki/浏览器自动化与登录态.md`：“后台运行与桌面占用”仅修订入口次序，没有执行账号操作。
+- 四态、pending owner 与原页读回约定为 `already_covered`，没有重复改写。
+
+交付状态暂为 `pending`：代码及4页已验证，普通 push 与远端内容核对由根 Codex 完成。原知识主工作区分叉及其它进行中主题保留，详见 findings。
+
+## 2026-10-08 Done
 
 - 修复原生对象、JSON 封套、文本块和业务 JSON 正文；展开与折叠共用归一化。显式失败优先，深层结构有界，媒体检查基于最终显示正文。
 - 正文检索排除上下文、内部思考与未分类记录；工具输入/结果和相关用户消息优先摘录，绝对消息编号保持不变。
@@ -12,7 +40,7 @@
 - Codex 解析版本 5 → 6；公开 reader 验证刷新旧派生缓存后恢复正文，原录制保持只读。
 - 已读所有本次所涉 Git 状态和既有任务约束；保留本地原始测量、禁提交 fixture、未验收的系统恢复和独立嵌套仓库，接续入口见 findings。
 
-## Verification
+## 2026-10-08 Verification
 
 - `PYTHONPATH=tests:. python3 -B -m unittest discover -s tests -p 'test_*.py' -q`：586 项通过，1 项既有跨仓 oracle 配置跳过。
 - `node tests/test_workspace.js` 通过；`node tests/test_tool_collapse.js` 18/18 通过。
@@ -20,7 +48,7 @@
 - 最终代码使用新派生缓存定点展开一份旧录制：12 条工具结果均保留正文，无空值或 unsupported；所选日期的源哈希不变。日期覆盖仍为 partial，不推广为全库已重新解析。
 - 67 个项目 Markdown 相对链接有效；23 个知识页 wikilink 与标题锚点有效；skill `quick_validate.py` 通过；diff 检查通过。
 
-## Knowledge closeout
+## 2026-10-08 Knowledge closeout
 
 状态：`updated`。根 Codex 汇总、读回并通过隔离工作树交付：
 
@@ -35,9 +63,9 @@
 
 ## Remaining
 
-本任务无剩余实现工作。既有本地材料的恢复入口和接续责任见 findings。
+本轮代码与知识验证已完成。剩余为普通提交推送与远端读回，owner：根 Codex。既有本地材料恢复入口见 findings。
 
-## Delivery
+## 2026-10-08 Delivery
 
 源码成果提交：`2f8328630459495399ce481eb38629d935ca318e`，已普通推送到 `qiaoqiao2521/Codex-Claude-History-Viewer` 的 main。GitHub API 读回 main SHA 与本地提交一致。仅暂存本轮 19 个已审阅文件；原始历史、运行日志、本地测量与禁提交 fixture 没有入库。
 
@@ -51,4 +79,4 @@
 
 ## Next
 
-本任务完成。下次工具借鉴从 `search --brief --limit 3` 进入，按需要展开公开证据；采用知识的任务收尾按四种结果记录。本轮知识回写状态为 updated。
+根 Codex 完成普通推送后记录远端修订及4页内容核对。以后从 `search --brief` 或 `markers` 进入；标记记录事件，后续 Agent 再判断效果并在原技能仓库调优。

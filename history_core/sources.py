@@ -615,7 +615,7 @@ def _codex_format_tool_use(name, call_id=None, raw_input=None, *, is_custom=Fals
     return "\n".join(lines).strip()
 
 
-def _codex_normalize_tool_result(raw_output):
+def _codex_normalize_tool_result(raw_output, *, result_metadata=None):
     """Read known text envelopes once for both expanded and collapsed results.
 
     Binary content is represented by a marker. Unknown shapes stay explicit;
@@ -625,15 +625,24 @@ def _codex_normalize_tool_result(raw_output):
     text_keys = {"output", "text", "content", "metadata", "exit_code", "status", "is_error", "isError", "error"}
     media_kinds = {"image", "image_url", "input_image", "output_image", "audio", "input_audio", "output_audio", "video"}
     text_kinds = {"text", "input_text", "output_text"}
+    envelope_keys = text_keys | {"type", "duration_seconds", "wall_time_seconds", "chunk_id",
+                                 "original_token_count", "session_id", "_meta", "structuredContent"}
 
     def is_envelope(value, depth=0):
         if depth > 20:
             return True  # collect() will expose the bounded fallback.
         if isinstance(value, dict):
             kind = value.get("type")
-            return (bool(set(value) & {"output", "text", "content", "metadata"})
-                    or (isinstance(kind, str) and kind in media_kinds | {"resource"}))
-        return isinstance(value, list) and any(is_envelope(item, depth + 1) for item in value)
+            if isinstance(kind, str) and kind in media_kinds | {"resource"}:
+                return True
+            if isinstance(kind, str) and kind in text_kinds and isinstance(value.get("text"), str):
+                return True
+            keys = set(value)
+            # A familiar field alone does not make application JSON a transport
+            # envelope. Preserve extra business fields instead of dropping them.
+            return keys <= envelope_keys and bool(keys & {"output", "text", "content", "metadata"})
+        return (isinstance(value, list) and bool(value)
+                and all(is_envelope(item, depth + 1) for item in value))
 
     def media_safe(value, depth=0):
         """Preserve application JSON fields while omitting binary media values."""
@@ -710,11 +719,13 @@ def _codex_normalize_tool_result(raw_output):
             if is_envelope(parsed):
                 collect(parsed, depth + 1)
                 return
-            exit_codes.extend(int(code) for code in re.findall(r"^Exit code:\s*(-?\d+)\s*$", value, re.M))
-            match = re.search(r"^Wall time:\s*(.+?)\s*$", value, re.M)
+            header, separator, output = value.partition("\nOutput:\n")
+            metadata_text = header if separator else value
+            exit_codes.extend(int(code) for code in re.findall(r"^Exit code:\s*(-?\d+)\s*$", metadata_text, re.M))
+            match = re.search(r"^Wall time:\s*(.+?)\s*$", metadata_text, re.M)
             if match:
                 wall_times.append(match.group(1).strip())
-            text = media_safe_text(value.split("\nOutput:\n", 1)[-1], depth + 1)
+            text = media_safe_text(output if separator else value, depth + 1)
             if text.strip():
                 parts.append(text)
             return
@@ -724,6 +735,10 @@ def _codex_normalize_tool_result(raw_output):
             return
         if isinstance(value, dict):
             kind = value.get("type")
+            if not body and set(value) & {"output", "text", "content", "metadata"} and not is_envelope(value):
+                # Native application objects follow the same opaque-JSON path
+                # as their string representation, including media omission.
+                body = True
             if not body:
                 metadata(value)
                 meta = value.get("metadata")
@@ -761,6 +776,17 @@ def _codex_normalize_tool_result(raw_output):
         parts.append(f"[unsupported tool output: {type(value).__name__}]")
 
     collect(raw_output)
+    # Native response metadata annotates an already normalized tool result. It
+    # must not turn that result into opaque stdout or hide its explicit failure.
+    if isinstance(result_metadata, dict):
+        metadata(result_metadata)
+        meta = result_metadata.get("metadata")
+        if isinstance(meta, dict):
+            metadata(meta)
+        error = result_metadata.get("error")
+        error_text = error.get("message") if isinstance(error, dict) else error
+        if isinstance(error_text, str) and error_text and error_text not in parts:
+            collect(error_text, body=True)
     # A wrapper may contain several command results. Preserve any explicit
     # failure rather than allowing a later successful result to hide it.
     exit_code = next((code for code in exit_codes if code != 0), exit_codes[-1] if exit_codes else None)
@@ -771,14 +797,14 @@ def _codex_normalize_tool_result(raw_output):
             "exit_status": status}
 
 
-def _codex_format_tool_result(tool_name=None, call_id=None, raw_output=None):
+def _codex_format_tool_result(tool_name=None, call_id=None, raw_output=None, *, result_metadata=None):
     tool_label = str(tool_name).strip() if tool_name else ""
     header = f"Tool result: {tool_label}" if tool_label else "Tool result:"
     lines = [header]
     if call_id:
         lines.append(f"Call ID: {call_id}")
 
-    result = _codex_normalize_tool_result(raw_output)
+    result = _codex_normalize_tool_result(raw_output, result_metadata=result_metadata)
     exit_code, wall_time, body = result["exit_code"], result["wall_time"], result["body"]
     if result["exit_status"]:
         lines.append(f"Status: {result['exit_status']}")
@@ -950,9 +976,9 @@ def _codex_summarize_tool_use(name, raw_input=None, *, is_custom=False):
     return s
 
 
-def _codex_summarize_tool_result(tool_name=None, raw_output=None):
+def _codex_summarize_tool_result(tool_name=None, raw_output=None, *, result_metadata=None):
     s = _empty_tool_summary(tool_name or "tool")
-    result = _codex_normalize_tool_result(raw_output)
+    result = _codex_normalize_tool_result(raw_output, result_metadata=result_metadata)
     s.update({key: result[key] for key in ("exit_code", "exit_status", "is_error")})
     if result["body"]:
         s["output_preview"] = _truncate_str(result["body"], 200)
@@ -1083,6 +1109,7 @@ def _usage_greater(candidate, current):
 
 
 def parse_codex_session_file(path: Path):
+    from .trace_markers import style_markers, declared_skill_markers, skill_tool_markers
     session_id = None
     start_ts_ms = None
     end_ts_ms = None
@@ -1095,6 +1122,15 @@ def parse_codex_session_file(path: Path):
     tool_names = {}
     usage_totals = None
     relations = {}
+    marker_cwd = None
+    marker_turn_id = None
+
+    def marker_fields(markers):
+        if not markers:
+            return {}
+        return {'trace_markers': markers, 'trace_context': {
+            'cwd': marker_cwd or cwd, 'turn_id': marker_turn_id,
+            'basis': 'recorded_context'}}
 
     def add_search(text):
         nonlocal search_len
@@ -1154,12 +1190,22 @@ def parse_codex_session_file(path: Path):
                             start_ts_ms = meta_ts
                         if end_ts_ms is None or meta_ts > end_ts_ms:
                             end_ts_ms = meta_ts
+                elif obj_type == 'turn_context':
+                    payload = obj.get('payload')
+                    marker_turn_id = None
+                    if isinstance(payload, dict):
+                        if isinstance(payload.get('cwd'), str):
+                            marker_cwd = payload['cwd']
+                        if isinstance(payload.get('turn_id'), str):
+                            marker_turn_id = payload['turn_id']
+                    add_raw_message(messages, ts_ms, 'other', obj, reason='type:turn_context')
                 elif obj_type == "response_item":
                     payload = obj.get("payload", {})
                     payload_type = payload.get("type")
                     if payload_type == "message":
                         role = payload.get("role", "unknown")
                         text = extract_text(payload.get("content", []))
+                        markers = style_markers(role, text) + declared_skill_markers(role, text)
                         role, kind, text, is_context = normalize_codex_context_message(role, "message", text)
                         if text:
                             messages.append({
@@ -1168,6 +1214,7 @@ def parse_codex_session_file(path: Path):
                                 "role": role,
                                 "kind": kind,
                                 "text": text,
+                                **marker_fields(markers),
                             })
                             if not is_context:
                                 message_count += 1
@@ -1204,6 +1251,8 @@ def parse_codex_session_file(path: Path):
                     elif payload_type in ("function_call", "custom_tool_call"):
                         name = payload.get("name") or "tool"
                         call_id = payload.get("call_id")
+                        if not isinstance(call_id, str) or not call_id.strip():
+                            call_id = None
                         if name == "update_plan":
                             if call_id:
                                 tool_names[call_id] = str(name)
@@ -1221,10 +1270,13 @@ def parse_codex_session_file(path: Path):
                                 "tool_call_id": call_id,
                                 "text": text,
                                 "tool_summary": _codex_summarize_tool_use(name, raw_input, is_custom=(payload_type == "custom_tool_call")),
+                                **marker_fields(skill_tool_markers(name, raw_input)),
                             })
                             add_search(text)
                     elif payload_type in ("function_call_output", "custom_tool_call_output"):
                         call_id = payload.get("call_id")
+                        if not isinstance(call_id, str) or not call_id.strip():
+                            call_id = None
                         name = tool_names.get(call_id)
                         if name == "update_plan":
                             continue
@@ -1233,10 +1285,10 @@ def parse_codex_session_file(path: Path):
                         result_metadata = {key: payload[key] for key in (
                             "metadata", "exit_code", "status", "is_error", "isError", "error",
                             "duration_seconds", "wall_time_seconds") if key in payload}
-                        if result_metadata:
-                            raw_output = {**result_metadata, "output": raw_output}
-                        text = _codex_format_tool_result(name, call_id=call_id, raw_output=raw_output)
-                        summary = _codex_summarize_tool_result(name, raw_output=raw_output)
+                        text = _codex_format_tool_result(name, call_id=call_id, raw_output=raw_output,
+                                                         result_metadata=result_metadata)
+                        summary = _codex_summarize_tool_result(name, raw_output=raw_output,
+                                                               result_metadata=result_metadata)
                         if text:
                             messages.append({
                                 "ts_ms": ts_ms,
@@ -1512,6 +1564,7 @@ def _finalize_claude_usage(usage_by_id, usage_unkeyed):
 
 
 def parse_claude_session_file(path: Path):
+    from .trace_markers import style_markers, declared_skill_markers, skill_tool_markers
     session_id = None
     start_ts_ms = None
     end_ts_ms = None
@@ -1536,7 +1589,8 @@ def parse_claude_session_file(path: Path):
         search_parts.append(text)
         search_len += len(text)
 
-    def add_message(ts_ms, role, kind, text, count_for_stats=False, tool_summary=None):
+    def add_message(ts_ms, role, kind, text, count_for_stats=False, tool_summary=None,
+                    trace_markers=None, tool_call_id=None, block_index=None):
         nonlocal message_count, title
         if not text:
             return
@@ -1550,6 +1604,15 @@ def parse_claude_session_file(path: Path):
         }
         if isinstance(tool_summary, dict):
             msg["tool_summary"] = tool_summary
+        if isinstance(tool_call_id, str) and tool_call_id.strip():
+            msg['tool_call_id'] = tool_call_id
+        if block_index is not None:
+            msg['raw_ref']['json_pointer'] = f'/message/content/{block_index}'
+        markers = trace_markers if trace_markers is not None else (
+            style_markers(role, text) + declared_skill_markers(role, text))
+        if markers:
+            msg['trace_markers'] = markers
+            msg['trace_context'] = {'cwd': obj.get('cwd') or cwd, 'basis': 'recorded_context'}
         messages.append(msg)
         add_search(text)
         if count_for_stats:
@@ -1596,6 +1659,27 @@ def parse_claude_session_file(path: Path):
                 if obj_type == "file-history-snapshot":
                     continue
 
+                attachment = obj.get('attachment')
+                if (obj_type == 'attachment' and isinstance(attachment, dict)
+                        and attachment.get('type') == 'hook_additional_context'
+                        and attachment.get('hookEvent') == 'SessionStart'):
+                    content = attachment.get('content')
+                    texts = [content] if isinstance(content, str) else content if isinstance(content, list) else []
+                    found = False
+                    for block_index, text in enumerate(texts):
+                        markers = style_markers('system', text)
+                        if not markers:
+                            continue
+                        for marker in markers:
+                            marker.update(evidence_origin='recorded_hook_context', hook_event='SessionStart')
+                        add_message(ts_ms, 'system', 'context:output_style', text, trace_markers=markers)
+                        messages[-1]['raw_ref']['json_pointer'] = (
+                            '/attachment/content' if isinstance(content, str)
+                            else f'/attachment/content/{block_index}')
+                        found = True
+                    if found:
+                        continue
+
                 msg = obj.get("message")
                 if not isinstance(msg, dict):
                     add_raw_message(messages, ts_ms, "other", obj, reason=f"type:{obj_type or 'missing_message'}")
@@ -1604,19 +1688,28 @@ def parse_claude_session_file(path: Path):
                 role = msg.get("role") or obj_type
                 content = msg.get("content")
 
+                if role in ('system', 'developer'):
+                    text = content if isinstance(content, str) else extract_text(content if isinstance(content, list) else [])
+                    markers = style_markers(role, text)
+                    if markers:
+                        add_message(ts_ms, role, 'context:output_style', text, trace_markers=markers)
+                        continue
+
                 if role == "user":
                     tool_use_result = obj.get("toolUseResult") if isinstance(obj.get("toolUseResult"), dict) else None
                     if isinstance(content, str):
                         text = content.strip()
                         add_message(ts_ms, "user", "message", text, count_for_stats=True)
                     elif isinstance(content, list):
-                        for item in content:
+                        for block_index, item in enumerate(content):
                             if not isinstance(item, dict):
                                 continue
                             item_type = item.get("type")
                             if item_type == "tool_result":
                                 text = _claude_format_tool_result(item, tool_use_result=tool_use_result)
-                                add_message(ts_ms, "tool", "tool_result", text, count_for_stats=False, tool_summary=_claude_summarize_tool_result(item, tool_use_result=tool_use_result))
+                                add_message(ts_ms, "tool", "tool_result", text, count_for_stats=False,
+                                            tool_summary=_claude_summarize_tool_result(item, tool_use_result=tool_use_result),
+                                            tool_call_id=item.get('tool_use_id'), block_index=block_index)
                                 continue
                             text = _claude_extract_text_item(item)
                             if text:
@@ -1630,14 +1723,14 @@ def parse_claude_session_file(path: Path):
                     if isinstance(content, str):
                         add_message(ts_ms, "assistant", "message", content.strip(), count_for_stats=True)
                     elif isinstance(content, list):
-                        for item in content:
+                        for block_index, item in enumerate(content):
                             if not isinstance(item, dict):
                                 continue
                             item_type = item.get("type")
                             if item_type == "text":
                                 text = item.get("text")
                                 if isinstance(text, str) and text.strip():
-                                    add_message(ts_ms, "assistant", "message", text.strip(), count_for_stats=True)
+                                    add_message(ts_ms, "assistant", "message", text.strip(), count_for_stats=True, block_index=block_index)
                                 continue
                             if item_type == "thinking":
                                 thinking = item.get("thinking")
@@ -1647,7 +1740,10 @@ def parse_claude_session_file(path: Path):
                                 continue
                             if item_type == "tool_use":
                                 text = _claude_format_tool_use(item)
-                                add_message(ts_ms, "tool", "tool_use", text, count_for_stats=False, tool_summary=_claude_summarize_tool_use(item))
+                                add_message(ts_ms, "tool", "tool_use", text, count_for_stats=False,
+                                            tool_summary=_claude_summarize_tool_use(item), tool_call_id=item.get('id'),
+                                            trace_markers=skill_tool_markers(item.get('name'), item.get('input')),
+                                            block_index=block_index)
                                 continue
 
                             text = _claude_extract_text_item(item)
@@ -2273,7 +2369,7 @@ class Indexer:
                                 m["text"],
                                 json.dumps(m["tool_summary"]) if isinstance(m.get("tool_summary"), dict) else None,
                                 m.get("ts_ms") if m.get("ts_ms") and not str(m.get("kind", "")).startswith("raw_json") else None,
-                                json.dumps({key: m[key] for key in ("raw_ref", "tool_call_id", "turn_id", "parent_id", "tool_result_error") if key in m}),
+                                json.dumps({key: m[key] for key in ("raw_ref", "tool_call_id", "turn_id", "parent_id", "tool_result_error", "trace_markers", "trace_context") if key in m}),
                             )
                             for m in messages
                         ],
@@ -2414,7 +2510,60 @@ class Indexer:
             _strip_audit_raw_json(item)
         return items
 
+    def _list_tool_evidence_page(self, q, start_ms, end_ms, limit, offset, cwd, file_path):
+        """Rank actual tool wording before SQL pagination; never infer success."""
+        from .reuse import _terms, _path_match, query_budget
+        query, terms = _terms(q)
+        clean_limit, clean_offset = normalize_page_args(limit, offset)
+        where, args = ['1=1'], []
+        for column, operator, value in (('start_ts_ms', '>=', start_ms),
+                                        ('start_ts_ms', '<=', end_ms), ('cwd', '=', cwd)):
+            if value is not None:
+                where.append(f's.{column} {operator} ?')
+                args.append(value)
+        if file_path:
+            where.append("hv_reuse_file_match(s.files_touched_json,?,COALESCE(s.cwd,''))=1")
+            args.append(file_path)
+        for term in terms:
+            where.append(_indexed_session_match_sql('s'))
+            args.extend(['%' + _escape_sql_like(term) + '%'] * 3)
+        tool_scope = ("m.session_id=s.id AND m.role='tool' "
+                      "AND m.kind IN ('tool_use','tool_result') "
+                      f"AND {_indexed_public_message_sql('m')}")
+        rank_args = []
+        tool_terms = tool_phrase = title_phrase = '0'
+        if terms:
+            coverage = ' + '.join("(instr(lower(COALESCE(m.text,'')),lower(?))>0)" for _ in terms)
+            tool_terms = f'COALESCE((SELECT MAX({coverage}) FROM messages m WHERE {tool_scope}),0)'
+            rank_args.extend(terms)
+            tool_phrase = f"EXISTS(SELECT 1 FROM messages m WHERE {tool_scope} AND m.text LIKE ? ESCAPE '\\')"
+            title_phrase = "(COALESCE(s.title,'') LIKE ? ESCAPE '\\')"
+            rank_args.extend(['%' + _escape_sql_like(query) + '%'] * 2)
+        fields = ('s.id,s.start_ts_ms,s.end_ts_ms,s.title,s.message_count,s.cwd,s.pinned,'
+                  's.files_touched_json,s.tool_summary_json,s.command_intents_json,s.remote_context_json,'
+                  's.outcome_signal,s.value_score,s.friction_score,s.action_density,s.tokens_total')
+        sql = f'''SELECT {fields},{tool_terms} AS tool_match_terms,
+                         {tool_phrase} AS tool_phrase_match,{title_phrase} AS title_phrase_match
+                  FROM sessions s WHERE {' AND '.join(where)}
+                  ORDER BY tool_match_terms DESC,tool_phrase_match DESC,title_phrase_match DESC,
+                           s.end_ts_ms DESC,s.start_ts_ms DESC,s.id ASC LIMIT ? OFFSET ?'''
+        with query_budget(self) as conn:
+            if file_path:
+                conn.create_function('hv_reuse_file_match', 3, _path_match, deterministic=True)
+            rows = conn.execute(sql, [*rank_args, *args, clean_limit + 1, clean_offset]).fetchall()
+        items = []
+        for row in rows[:clean_limit]:
+            item = dict(row)
+            item.update(deserialize_audit_summary(item))
+            items.append(_strip_audit_raw_json(item))
+        has_more = len(rows) > clean_limit
+        return {'items': items, 'limit': clean_limit, 'offset': clean_offset,
+                'has_more': has_more, 'next_offset': clean_offset + len(items) if has_more else None,
+                'ranking': 'matching_tool_terms_then_phrase_then_title_and_time'}
+
     def list_sessions_page(self, q=None, start_ms=None, end_ms=None, limit=DEFAULT_PAGE_LIMIT, offset=0, cwd=None, sort=None, file_path=None, stable_order=False):
+        if str(sort or '').strip().lower() == 'tool_evidence':
+            return self._list_tool_evidence_page(q, start_ms, end_ms, limit, offset, cwd, file_path)
         clean_limit, clean_offset = normalize_page_args(limit, offset)
         terms = [t for t in str(q or "").split() if t]
 

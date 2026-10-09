@@ -183,6 +183,50 @@ class HistoryReader:
                     pass
         return service.handoff(self.__indexer, session_id, include_plans=include_plans)
 
+    def message(self, session_id, message_index, *, index_revision, text_offset=0):
+        """Expand a search locator with the same revision, without guessing a date."""
+        if self.__indexer is None:
+            raise ValueError('reader_closed')
+        self.__check_root()
+        self.__validate_cache()
+        if not index_revision:
+            raise ValueError('index_revision_required')
+        before = self.__revision()
+        if index_revision != before:
+            raise ValueError('index_revision_changed: restart search')
+        from .messages import read_message
+        result = read_message(self.__indexer, session_id, message_index, text_offset)
+        if self.__revision() != before:
+            raise ValueError('index_revision_changed: restart search')
+        result.update(source=self.__source, index_revision=before, freshness='unknown',
+                      evidence_authority='indexed_message', current_verification='not_performed')
+        return result
+
+    def markers(self, name=None, kind=None, session_id=None, project=None, limit=20, offset=0, index_revision=None):
+        """Read recorded marker metadata without refresh or message bodies."""
+        if self.__indexer is None:
+            raise ValueError('reader_closed')
+        if self.__source not in ('codex', 'claude'):
+            raise ValueError('markers_source_unsupported')
+        from .markers import MAX_OFFSET, read_markers
+        if type(offset) is not int or not 0 <= offset <= MAX_OFFSET:
+            raise ValueError('invalid_marker_offset')
+        self.__check_root()
+        self.__validate_cache()
+        if offset and not index_revision:
+            raise ValueError('index_revision_required: restart from offset 0')
+        before = self.__revision()
+        if index_revision is not None and index_revision != before:
+            raise ValueError('index_revision_changed: restart from offset 0')
+        result = read_markers(self.__indexer, name=name, kind=kind,
+                              session_id=session_id, project=project, limit=limit, offset=offset)
+        if self.__revision() != before:
+            raise ValueError('index_revision_changed: restart from offset 0')
+        result.update(source=self.__source, index_revision=before, freshness='unknown',
+                      pagination_consistency='revision_bound', evidence_authority='recorded_markers',
+                      current_verification='not_performed')
+        return result
+
     def activity(self, *, date, timezone, refresh=False, limit=100, offset=0,
                  index_revision=None, session_id=None, evidence_limit=6, message_offset=0, message_index=None, text_offset=0):
         """Message-time evidence from the selected store; never an outcome score."""

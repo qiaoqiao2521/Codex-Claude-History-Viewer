@@ -17,9 +17,25 @@
 
 无头 `search --brief` 为支持公用消息索引的来源返回小候选，包含来源、`index_revision` 和带绝对消息编号的 `snippets`。默认 `search` 输出保留兼容。未支持简短候选的来源明确报错，不以空摘录伪装为已完成证据检索。
 
+简短候选在分页前优先匹配的实际工具证据，再比较正文匹配、标题与最近活动；普通搜索的默认排序不变。每会话最多三条命中摘录，另外最多三条 `related_tool_messages`；后者仅关联同会话中已索引且相等的 Call ID，并列出 `related_to_message_indexes`。没有 ID 时不按相邻位置配对。当前 Codex 和 Claude 索引记录该 ID；其他来源未保存 ID 时关联为空。
+
+每条摘录保留 `kind`、`ts_ms`、调用 ID 及 `tool_summary.exit_status`（`ok/error/unknown`）。短正文不超过 240 字时完整保留；长正文给出 `has_more_before/after`、`excerpt_start/end` 与 `text_chars`，位置基于 `indexed_text`。失败状态与正文窗口独立，显示窗口缺少错误头不消除已知失败。调用 ID 展示上限 128 字，`call_id_truncated` 明确披露；关联仍比较索引中的完整 ID。
+
 已知内容缺失仍通过 `partial`、`content_warnings` 和候选的 `content_status` 披露；未知 AGY step 仅保留数量。零命中不消除来源的覆盖警告。
 
 简短候选用于选择要读的记录。定点展开相同修订的原文和必要上下文，再核对工具结果与当前项目验证；摘录、工具输入或历史退出码不能直接证明本次工作已完成。
+
+## 从搜索直接展开消息
+
+使用搜索返回的 `session_id`、绝对 `message_index` 和 `index_revision`，无需取得 activity 日期或转换修订：
+
+```bash
+python3 -m history_core --source codex --source-path ~/.codex/sessions --data-dir ~/.cache/cchv-reader message SESSION_ID MESSAGE_INDEX --index-revision INDEX_REVISION
+```
+
+`HistoryReader.message(..., index_revision=..., text_offset=0)` 与 CLI 使用同一路径。每页最多 2,000 个正文字符；有 `next_text_offset` 时加 `--text-offset` 继续，位置基于索引正文。已知秘密范围先在完整的选中消息中识别，再对窗口交集使用等长 `*` 遮罩，避免跨页或任意起点绕过；这仍是有限模式的最小脱敏。元数据超限明确标记，不声称已展示全文。
+
+内部思考与非公开消息拒绝展开；不支持消息索引的来源明确报错，不读取原生库猜正文。消息保持 `partial` 与覆盖状态；`freshness=unknown`、`current_verification=not_performed` 不代表当前应用已验证。此入口不隐式刷新或修改历史源；修订变化后重新搜索。search 与 activity 的修订契约各自独立。
 
 ## 按日期找活动
 

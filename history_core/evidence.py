@@ -49,6 +49,26 @@ def redact_text(text):
     return _KNOWN_TOKEN.sub("[REDACTED]", result)
 
 
+def redact_indexed_window(text, start, limit):
+    """Mask complete-message secret spans, preserving indexed character offsets.
+
+    A window can start inside a secret or split its assignment across pages.
+    Match on the selected full message, then mask only the window intersection.
+    Equal-length masking keeps both pagination and the rendered budget stable.
+    """
+    text = str(text or '')
+    end = min(len(text), start + limit)
+    window = list(text[start:end])
+    for pattern, group in ((_PRIVATE_KEY, 0), (_AUTH, 1),
+                           (_ASSIGNMENT, 1), (_KNOWN_TOKEN, 0)):
+        for match in pattern.finditer(text):
+            left = max(start, match.end(group) if group else match.start())
+            right = min(end, match.end())
+            if left < right:
+                window[left-start:right-start] = '*' * (right-left)
+    return ''.join(window)
+
+
 def _redact(value):
     if isinstance(value, str):
         return redact_text(value)

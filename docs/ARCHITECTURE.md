@@ -40,6 +40,10 @@ Linux source expansion uses `providers.py` for shared discovery/identity, `codeb
 
 `SourceBackend` binds a runtime system and source to an indexer. `Handler` routes `/api/{system}/{source}/...` requests and serves the static application. The runtime exposes Windows/WSL or Linux according to the host rather than presenting unavailable systems.
 
+### Recorded skill and output-style markers
+
+Codex and Claude parsers tag explicit native Skill requests, Learning context injection and standalone Agent declarations. Tags stay in existing message metadata. The [marker reader](trace-markers.md) returns bounded revision-bound locators without hidden bodies or a new database. Trigger evidence does not evaluate benefit; calling Agents own later interpretation and skill changes in their repositories.
+
 ### Audit layer
 
 `audit/extractor.py` normalizes transcript events and produces evidence-backed `AuditPayload` objects. Classification and scoring remain deterministic. `audit/ai_audit.py` and `audit/llm_client.py` provide opt-in semantic interpretation from compact payloads; the raw transcript is not the default AI input.

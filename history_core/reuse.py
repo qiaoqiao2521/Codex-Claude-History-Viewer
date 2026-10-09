@@ -24,6 +24,8 @@ MAX_CANDIDATES = 500
 MAX_PROJECTS = 1000
 MAX_MESSAGE_ROWS = 2000
 MAX_MESSAGE_CHARS = 8192
+MAX_RELATED_TOOL_MESSAGES = 3
+MAX_DISPLAY_CALL_ID_CHARS = 128
 
 
 def store_id(indexer):
@@ -223,6 +225,41 @@ def _candidates(idx, query='', project=None, start_ms=None, end_ms=None, file_pa
     return rows[:MAX_CANDIDATES], capped
 
 
+def _indexed_excerpt(row):
+    """Keep tool identity/status separate from a possibly clipped text window."""
+    from .evidence import redact_text, _redact
+    def object_value(raw):
+        try:
+            value = json.loads(raw or '{}')
+        except (TypeError, ValueError):
+            return {}
+        return value if isinstance(value, dict) else {}
+    meta = object_value(row['activity_meta_json'])
+    summary = object_value(row['tool_summary_json'])
+    call_id = meta.get('tool_call_id')
+    call_id = redact_text(call_id) if isinstance(call_id, str) and call_id else None
+    call_id_truncated = bool(call_id and len(call_id) > MAX_DISPLAY_CALL_ID_CHARS)
+    if call_id_truncated:
+        call_id = call_id[:MAX_DISPLAY_CALL_ID_CHARS]
+    tool_summary = None
+    if row['kind'] in ('tool_use', 'tool_result'):
+        status = summary.get('exit_status')
+        tool_summary = _redact({key: summary.get(key) for key in ('name', 'category', 'headline', 'exit_code', 'is_error')})
+        tool_summary['exit_status'] = status if status in ('ok', 'error') else 'unknown'
+        for key, maximum in (('name', 80), ('category', 32), ('headline', 120)):
+            if isinstance(tool_summary[key], str):
+                tool_summary[key] = tool_summary[key][:maximum]
+    start, size = row['excerpt_start'], row['text_chars']
+    end = min(size, start + 240)
+    return {'message_index': row['message_index'], 'role': row['role'], 'kind': row['kind'],
+            'ts_ms': row['ts_ms'], 'call_id': call_id, 'call_id_truncated': call_id_truncated,
+            'tool_summary': tool_summary,
+            'text': row['text'], 'truncated': start > 0 or end < size,
+            'has_more_before': start > 0, 'has_more_after': end < size,
+            'excerpt_start': start, 'excerpt_end': end, 'text_chars': size,
+            'excerpt_offset_basis': 'indexed_text'}
+
+
 def _indexed_snippets(idx, sid, query, terms):
     """Rank public message evidence, then return three short excerpts.
 
@@ -232,6 +269,7 @@ def _indexed_snippets(idx, sid, query, terms):
     """
     if not terms:
         return [], False
+    from .evidence import redact_indexed_window
     text = "COALESCE(m.text,'')"
     occurrence = f'instr(lower({text}),lower(?))'
     hits = [f'hit_{n}' for n in range(len(terms))]
@@ -246,29 +284,84 @@ def _indexed_snippets(idx, sid, query, terms):
             SELECT id, ROW_NUMBER() OVER (ORDER BY ts_ms ASC,id ASC)-1 AS message_index
             FROM messages WHERE session_id=?
         ), located AS MATERIALIZED (
-            SELECT o.id,o.message_index,m.role,m.kind,length({text}) AS body_chars,
+            SELECT o.id,o.message_index,m.role,m.kind,hv_reuse_text_chars({text}) AS body_chars,
                    {occurrence} AS phrase_position,{term_columns}
             FROM ordered o JOIN messages m ON m.id=o.id
             WHERE {_indexed_public_message_sql('m')}
         ), matches AS (
             SELECT *,({coverage}) AS matched_terms,{position} AS match_position
             FROM located WHERE {predicate}
+        ), windows AS (
+            SELECT *,CASE WHEN body_chars<=240 THEN 0 ELSE max(0,match_position-71) END AS excerpt_start
+            FROM matches
+        ), selected AS MATERIALIZED (
+            SELECT * FROM windows
+            ORDER BY matched_terms DESC,(phrase_position>0) DESC,
+                     CASE WHEN role='tool' AND kind IN ('tool_use','tool_result') THEN 2
+                          WHEN role='user' THEN 1 ELSE 0 END DESC,
+                     CASE WHEN role='user' THEN message_index ELSE 0 END DESC,
+                     message_index ASC LIMIT 3
         )
-        SELECT r.message_index,r.role,
-               substr({text},max(1,r.match_position-70),240) AS text,
-               length({text})>240 AS truncated
-        FROM matches r JOIN messages m ON m.id=r.id
+        SELECT r.message_index,r.role,r.kind,m.ts_ms,m.tool_summary_json,m.activity_meta_json,
+               hv_reuse_indexed_window({text},r.excerpt_start,240) AS text,
+               r.excerpt_start,r.body_chars AS text_chars
+        FROM selected r JOIN messages m ON m.id=r.id
         ORDER BY r.matched_terms DESC,(r.phrase_position>0) DESC,
                  CASE WHEN r.role='tool' AND r.kind IN ('tool_use','tool_result') THEN 2
                       WHEN r.role='user' THEN 1 ELSE 0 END DESC,
                  CASE WHEN r.role='user' THEN r.message_index ELSE 0 END DESC,
-                 r.message_index ASC LIMIT 3
+                 r.message_index ASC
     '''
     args = [sid, query, *terms]
     with query_budget(idx) as conn:
+        conn.create_function('hv_reuse_text_chars', 1, len, deterministic=True)
+        conn.create_function('hv_reuse_indexed_window', 3, redact_indexed_window, deterministic=True)
         rows = conn.execute(sql, args).fetchall()
-    return [dict(message_index=row['message_index'], role=row['role'], text=row['text'],
-                 truncated=bool(row['truncated'])) for row in rows], False
+    return [_indexed_excerpt(row) for row in rows], False
+
+
+def _related_tool_messages(idx, sid, snippets):
+    """Same-session Call ID counterparts only; bounded independently of hits."""
+    indices = [item['message_index'] for item in snippets
+               if item.get('kind') in ('tool_use', 'tool_result') and item.get('call_id')]
+    if not indices:
+        return [], False
+    from .evidence import redact_indexed_window
+    placeholders = ','.join('?' for _ in indices)
+    call_id = "CASE WHEN json_valid(m.activity_meta_json) THEN json_extract(m.activity_meta_json,'$.tool_call_id') END"
+    sql = f'''
+        WITH ordered AS (
+            SELECT id,ROW_NUMBER() OVER (ORDER BY ts_ms,id)-1 AS message_index
+            FROM messages WHERE session_id=?
+        ), selected_calls AS (
+            SELECT o.message_index,{call_id} AS call_id,
+                   CASE WHEN m.kind='tool_use' THEN 'tool_result' ELSE 'tool_use' END AS counterpart
+            FROM ordered o JOIN messages m ON m.id=o.id
+            WHERE o.message_index IN ({placeholders}) AND m.role='tool'
+              AND m.kind IN ('tool_use','tool_result')
+        ), related AS MATERIALIZED (
+        SELECT o.id,o.message_index,group_concat(s.message_index) AS related_to
+        FROM ordered o JOIN messages m ON m.id=o.id
+        JOIN selected_calls s ON {call_id}=s.call_id AND m.kind=s.counterpart
+        WHERE {_indexed_public_message_sql('m')} AND m.role='tool'
+          AND o.message_index NOT IN ({placeholders})
+        GROUP BY o.id ORDER BY o.message_index LIMIT ?
+        )
+        SELECT r.message_index,m.role,m.kind,m.ts_ms,m.tool_summary_json,m.activity_meta_json,
+               hv_reuse_indexed_window(COALESCE(m.text,''),0,240) AS text,0 AS excerpt_start,
+               hv_reuse_text_chars(COALESCE(m.text,'')) AS text_chars,r.related_to
+        FROM related r JOIN messages m ON m.id=r.id ORDER BY r.message_index
+    '''
+    with query_budget(idx) as conn:
+        conn.create_function('hv_reuse_text_chars', 1, len, deterministic=True)
+        conn.create_function('hv_reuse_indexed_window', 3, redact_indexed_window, deterministic=True)
+        rows = conn.execute(sql, [sid, *indices, *indices, MAX_RELATED_TOOL_MESSAGES + 1]).fetchall()
+    related = []
+    for row in rows[:MAX_RELATED_TOOL_MESSAGES]:
+        item = _indexed_excerpt(row)
+        item['related_to_message_indexes'] = sorted({int(value) for value in row['related_to'].split(',')})
+        related.append(item)
+    return related, len(rows) > MAX_RELATED_TOOL_MESSAGES
 
 
 def _snippets(idx, sid, query):

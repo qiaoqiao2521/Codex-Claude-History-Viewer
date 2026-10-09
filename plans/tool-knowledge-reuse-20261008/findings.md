@@ -6,6 +6,26 @@
 - 原知识入口只有宽主题；旧协作规则仅要求新页补入口，旧页新增经验缺少发现性维护。
 - 知识库已有近期经验，不能将索引缺口概括成完全未更新；索引刷新不代表原页已写入。
 
+## 2026-10-10 Recheck
+
+- 前轮会话内摘录相关性没有改变 brief 的会话级最近排序。合成 CLI 搜索表明，旧的真实工具调用会被较新的随口讨论挤出少量候选。
+- 命中窗口不能代替工具状态：短结果也可能从中间裁剪，原 `length>240` 标记遗漏前部省略；错误头与返回体要分别保留。
+- 输入和结果关联必须使用同会话已保存的 Call ID；相邻记录或同名工具不是可靠关联依据。
+- search 和 activity 修订不同。采用原知识页“验证入口跟随实际调用路径”：直接消息展开绑定 search 修订，保留 activity 独立契约，不要求用户猜跨日日期。
+- 正式 v6 缓存会保留解析回归。更改正文/错误解释后需要 v7 刷新迁移；新缓存通过不能冒充旧缓存恢复。
+- 最新浏览器规则已由用户明确改为 daily-browser plugin first；知识原页仍直接引导 CDP 排查，需要同步工具次序，而不为知识整理实际登录账号。
+
+## Skill marker scope and evidence
+
+- 用户于 2026-10-10 明确：目标是 `learning-output-style` 插件触发与所有 skill 采用的精准日志标记。TraceMesh 只提供接口；后续 Agent 才提取结论、分析作用并在原技能仓库优化。
+- 已撤回误扩的 skill-learning 草稿；没有安装、helper、链接或反馈数据库。tracemesh-recall 正文恢复到本轮修改前的 0.4.1；共享 AGENTS 仅增加用户确认的原对话标记约定。
+- Codex 的实际所选录制已有 4 处 developer Learning 指令注入。Claude 有界观察到 SessionStart attachment 的 list[str] 原生格式；该真实样本为 Explanatory，不冒称 Learning 已观察。Learning 分支另用当前插件公开提示和合成录制验证。
+- 注入、原生 Skill 请求、Agent 声明是三种证据，不推断加载成功或正向作用。读文件、配置启用、目录列表和 Insight 都不产生标记。
+- Claude 混合附件按元素识别并保留 JSON pointer；Codex 新 context 缺少 turn ID 时清空旧值，避免错误归因。工作目录来自录制，不探测 Git 根目录。
+- Codex parser v8、Claude v6 在既有索引保存 marker 元数据；公开 refresh 验证正式上一缓存恢复且不新增表。markers 查询不取正文，不刷新，不写历史源。
+- 独立审查与纯代码验证均使用最小合成记录。实际当前录制活跃，第一次前后哈希比较不稳定；随后的有界读回确认 4 个注入与 1 个声明、该次源字节不变。这不是全库覆盖。
+- `markers` 结果始终披露 recorded_markers_only、未捕获可能与 effect_assessment=not_performed，防止后续 Agent 将日志数量误当效果判定。
+
 ## Protected prior work
 
 - `plans/daily-activity/` 未跟踪测量、基线和原始定位：已有计划明确仅本地保留；不上传。源码及公开验收文件已在 Git。

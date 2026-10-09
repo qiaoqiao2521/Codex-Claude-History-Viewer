@@ -32,6 +32,19 @@ def main(argv=None):
     query.add_argument("--project", default=None)
     query.add_argument("--index-revision", default=None, help="Previous page revision; required for offset > 0 in a new process")
     query.add_argument("--brief", action="store_true", help="Return compact candidates and public excerpts for message-index sources")
+    message = commands.add_parser("message", help="Expand a public search message using its index revision")
+    message.add_argument("session_id")
+    message.add_argument("message_index", type=int)
+    message.add_argument("--index-revision", required=True, help="Exact revision returned by search")
+    message.add_argument("--text-offset", type=int, default=0, help="Indexed-text character offset for bounded body pages")
+    markers = commands.add_parser("markers", help="Query recorded skill/output-style metadata without body reads or effect claims")
+    markers.add_argument("--name", default=None)
+    markers.add_argument("--kind", choices=("skill", "output_style"), default=None)
+    markers.add_argument("--session", default=None, dest="session_id")
+    markers.add_argument("--project", default=None, help="Exact recorded working directory")
+    markers.add_argument("--limit", type=int, default=20)
+    markers.add_argument("--offset", type=int, default=0)
+    markers.add_argument("--index-revision", default=None, help="Exact previous marker-page revision; required for offset > 0")
     transfer = commands.add_parser("handoff")
     transfer.add_argument("session_id")
     transfer.add_argument("--include-plans", action="store_true", help="Explicitly include bounded project-file candidates; not verified decisions")
@@ -61,6 +74,13 @@ def main(argv=None):
             result = reader.search(query=args.query, limit=args.limit, offset=args.offset, cwd=args.project, index_revision=args.index_revision, brief=args.brief)
         elif args.command == "handoff":
             result = reader.handoff(args.session_id, include_plans=args.include_plans)
+        elif args.command == "message":
+            result = reader.message(args.session_id, args.message_index,
+                                    index_revision=args.index_revision, text_offset=args.text_offset)
+        elif args.command == "markers":
+            result = reader.markers(name=args.name, kind=args.kind, session_id=args.session_id,
+                                    project=args.project,
+                                    limit=args.limit, offset=args.offset, index_revision=args.index_revision)
         else:
             result = reader.health()
         print(json.dumps(result, ensure_ascii=False))

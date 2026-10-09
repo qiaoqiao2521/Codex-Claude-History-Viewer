@@ -13,15 +13,18 @@ def search(indexer, *, query=None, limit=20, offset=0, cwd=None, stable_order=Fa
         from .providers import uses_message_index
         if not uses_message_index(indexer):
             raise ValueError('brief_evidence_source_unsupported')
-    result = indexer.list_sessions_page(q=query, limit=limit, offset=offset, cwd=cwd, sort="last", **kwargs)
+    result = indexer.list_sessions_page(q=query, limit=limit, offset=offset, cwd=cwd,
+                                       sort='tool_evidence' if brief else 'last', **kwargs)
     if not brief:
         return result
-    from .reuse import _snippets
-    from .evidence import redact_text
+    from .reuse import _snippets, _related_tool_messages, MAX_RELATED_TOOL_MESSAGES
+    from .evidence import redact_text, _redact
     items = []
     for row in result['items']:
         snippets, partial = _snippets(indexer, row['id'], query or '')
+        related, related_truncated = _related_tool_messages(indexer, row['id'], snippets)
         candidate = {key: row.get(key) for key in ('id', 'title', 'cwd', 'start_ts_ms', 'end_ts_ms')}
+        candidate['tool_match_terms'] = row.get('tool_match_terms', 0)
         if 'content_status' in row:
             candidate['content_status'] = row['content_status']
             candidate['unsupported_steps_count'] = len(row.get('unsupported_steps') or [])
@@ -29,11 +32,13 @@ def search(indexer, *, query=None, limit=20, offset=0, cwd=None, stable_order=Fa
         for key in ('title', 'cwd'):
             if isinstance(candidate[key], str):
                 candidate[key] = redact_text(candidate[key])
-        candidate.update(snippets=[dict(s, text=redact_text(s['text'])) for s in snippets], snippets_partial=partial)
+        candidate.update(snippets=_redact(snippets), snippets_partial=partial,
+                         related_tool_messages=_redact(related), related_tool_messages_truncated=related_truncated)
         items.append(candidate)
     incomplete = sum(entry.get('content_status') != 'decoded_text'
                      for entry in getattr(indexer, '_coverage', {}).values())
     compact = dict(result, items=items, mode='brief',
+                   related_tool_messages_limit=MAX_RELATED_TOOL_MESSAGES,
                    partial=bool(result.get('partial') or incomplete or any(item['snippets_partial'] for item in items)))
     if incomplete:
         compact['content_warnings'] = [{'source': indexer.source, 'incomplete_sessions': incomplete}]
