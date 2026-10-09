@@ -43,7 +43,7 @@ Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56e
 
 ## Current Priority
 
-2026-10-10：用户要求复查并继续修改工具借鉴。沿用[原计划](plans/tool-knowledge-reuse-20261008/task_plan.md)，修复跨会话候选、工具输入/结果关联和直接证据展开；新增 learning-output-style 与 skill 的精准日志标记接口。作用分析与技能调优归后续 Agent，不在 TraceMesh 自动执行；知识收尾核对原页实际读回。
+2026-10-10：已完成[工具借鉴复查与精准日志接口](plans/tool-knowledge-reuse-20261008/task_plan.md)：修复跨会话候选、工具输入/结果关联和直接证据展开；区分 learning-output-style 注入、原生 Skill 请求与 Agent 声明。源码及4处原知识页已普通推送，远端修订与逐页哈希已核对，见[交付记录](plans/tool-knowledge-reuse-20261008/progress.md)。作用分析与技能调优归后续 Agent；本轮未替换既有 GUI 安装。
 
 2026-10-08：已完成[工具借鉴与知识收尾](plans/tool-knowledge-reuse-20261008/task_plan.md)。结构化工具结果、公开证据排序与无头精简候选已验证；知识入口和原页已修订、读回并交付。验证及普通推送见[进度](plans/tool-knowledge-reuse-20261008/progress.md)。源码、安装和历史覆盖分别验收。
 

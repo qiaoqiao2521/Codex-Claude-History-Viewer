@@ -30,7 +30,7 @@ A dependency-free Python HTTP server indexes local Agent histories into per-sour
 
 Codex expanded results and collapsed previews share one normalizer. It reads plain text, native/JSON `output`/`text`/`content` envelopes, and text-block lists. Explicit errors and nonzero exits survive multi-result wrappers. Image/audio/binary resource bodies use omission markers. Empty and unsupported native shapes remain visible, with original line references retained.
 
-Codex parser version 6 reparses older derived caches on explicit refresh; source recordings stay read-only. This rendering does not replace the separate deterministic audit extractor or establish application acceptance.
+Codex parser version 8 and Claude parser version 6 reparse older derived caches on explicit refresh; source recordings stay read-only. This rendering does not replace the separate deterministic audit extractor or establish application acceptance.
 
 Linux source expansion uses `providers.py` for shared discovery/identity, `codebuddy.py` for native CBC envelopes, `extra_parsers.py` for Gemini recording updates and pi/Prime trees, and `copilot.py` for event logs. Gemini `.json` and `.jsonl` share one materializer; migrated copies are filtered. `zcode.py` reuses the OpenCode part/audit renderer with sequence ordering and a connection-local TEMP VIEW to project message metrics; it never changes the native schema. See [paths and capability matrix](local-cli-sources.md).
 
