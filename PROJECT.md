@@ -43,6 +43,8 @@ Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56e
 
 ## Current Priority
 
+2026-10-19：用户确认实施[活跃会话固定读取与纯素材](plans/active-read-snapshot-20261019/task_plan.md)。复用派生 SQLite 短读事务、原 Codex parser/audit 与素材格式，补充目标捕获和失败隔离。实施与验证见该计划；不暂停对话，不新增索引系统或自动升级安装包。
+
 2026-10-10：已完成[工具借鉴复查与精准日志接口](plans/tool-knowledge-reuse-20261008/task_plan.md)：修复跨会话候选、工具输入/结果关联和直接证据展开；区分 learning-output-style 注入、原生 Skill 请求与 Agent 声明。源码及4处原知识页已普通推送，远端修订与逐页哈希已核对，见[交付记录](plans/tool-knowledge-reuse-20261008/progress.md)。作用分析与技能调优归后续 Agent；本轮未替换既有 GUI 安装。
 
 2026-10-08：已完成[工具借鉴与知识收尾](plans/tool-knowledge-reuse-20261008/task_plan.md)。结构化工具结果、公开证据排序与无头精简候选已验证；知识入口和原页已修订、读回并交付。验证及普通推送见[进度](plans/tool-knowledge-reuse-20261008/progress.md)。源码、安装和历史覆盖分别验收。

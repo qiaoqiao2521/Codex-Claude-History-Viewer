@@ -603,7 +603,7 @@ def _iter_jsonl(path: Path, content: Optional[bytes] = None) -> Iterator[Tuple[i
     can count ``parse_errors``.
     """
     try:
-        stream = io.StringIO(content.decode("utf-8", errors="replace")) if content is not None else path.open("r", encoding="utf-8", errors="replace")
+        stream = io.TextIOWrapper(io.BytesIO(content), encoding="utf-8", errors="replace") if content is not None else path.open("r", encoding="utf-8", errors="replace")
         with stream as f:
             for line_no, raw in enumerate(f, start=1):
                 if len(raw) > MAX_LINE_BYTES:

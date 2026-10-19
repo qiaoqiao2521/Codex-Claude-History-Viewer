@@ -256,3 +256,5 @@ remains present but is not newly certified. See [release validation and rollback
 公众号写作素材：从所选证据整理成果卡，预览后下载或导出到本地内容仓，详见[使用说明](docs/materials.md)。
 
 [检索词法与摘录边界](docs/search-semantics.md)：大小写、字面字符、摘录顺序及修订变化说明。
+
+当前源码新增[活跃对话固定读取与纯素材](docs/active-read-snapshots.md)：目标 Codex 文件捕获、逐会话失败隔离和无提示词 `materials` 导出。既有安装包与 GUI 未因此自动升级。

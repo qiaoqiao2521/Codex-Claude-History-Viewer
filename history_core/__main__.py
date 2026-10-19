@@ -2,11 +2,19 @@
 import argparse
 import json
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 from .reader import HistoryReader
 from .providers import SOURCES, canonical_source
+
+
+def _message_window(value):
+    parts = value.split(':')
+    if not 1 <= len(parts) <= 2 or not all(part.isascii() and part.isdigit() for part in parts):
+        raise argparse.ArgumentTypeError('expected MESSAGE_INDEX[:TEXT_OFFSET], both nonnegative integers')
+    return {'message_index': int(parts[0]), 'text_offset': int(parts[1]) if len(parts) == 2 else 0}
 
 
 def main(argv=None):
@@ -23,7 +31,11 @@ def main(argv=None):
     parser.add_argument("--source-path", type=Path, required=True, help="Explicit sessions directory or native SQLite file")
     parser.add_argument("--data-dir", type=Path, help="Required separate cache directory for JSONL sources")
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("refresh")
+    refresh = commands.add_parser("refresh")
+    refresh.add_argument('--file', action='append', type=Path, dest='paths',
+                         help='Capture a selected Codex JSONL under the unchanged source root; repeatable')
+    refresh.add_argument('--max-bytes', type=int, default=128 * 1024 * 1024,
+                         help='Maximum captured bytes per Codex recording; excess is reported explicitly')
     commands.add_parser("health")
     query = commands.add_parser("search")
     query.add_argument("--query", default=None)
@@ -37,6 +49,11 @@ def main(argv=None):
     message.add_argument("message_index", type=int)
     message.add_argument("--index-revision", required=True, help="Exact revision returned by search")
     message.add_argument("--text-offset", type=int, default=0, help="Indexed-text character offset for bounded body pages")
+    materials = commands.add_parser('materials', help='Export selected indexed message windows without review prompts or live source reads')
+    materials.add_argument('session_id')
+    materials.add_argument('--index-revision', required=True)
+    materials.add_argument('--message', action='append', required=True, type=_message_window, dest='selections',
+                           help='MESSAGE_INDEX[:TEXT_OFFSET]; repeat for up to five selected windows')
     markers = commands.add_parser("markers", help="Query recorded skill/output-style metadata without body reads or effect claims")
     markers.add_argument("--name", default=None)
     markers.add_argument("--kind", choices=("skill", "output_style"), default=None)
@@ -53,6 +70,8 @@ def main(argv=None):
     native.add_argument("--device-id", required=True, help="Stable local device identity from the coordinator configuration")
     args = parser.parse_args(argv)
     reader = None
+    started = time.monotonic()
+    phase = 'initialization'
     try:
         source = args.source_path.resolve(strict=True)
         if args.command == "native-reference":
@@ -67,9 +86,11 @@ def main(argv=None):
                       "reference": reference(args.source_path, args.device_id, args.session_id)}
             print(json.dumps(result, ensure_ascii=False))
             return 0
-        reader = HistoryReader(args.source, source, args.data_dir)
+        reader = HistoryReader(args.source, source, args.data_dir,
+                               validate_tree=args.command == 'handoff')
+        phase = args.command
         if args.command == "refresh":
-            result = reader.refresh()
+            result = reader.refresh(paths=args.paths, max_bytes=args.max_bytes)
         elif args.command == "search":
             result = reader.search(query=args.query, limit=args.limit, offset=args.offset, cwd=args.project, index_revision=args.index_revision, brief=args.brief)
         elif args.command == "handoff":
@@ -77,16 +98,23 @@ def main(argv=None):
         elif args.command == "message":
             result = reader.message(args.session_id, args.message_index,
                                     index_revision=args.index_revision, text_offset=args.text_offset)
+        elif args.command == 'materials':
+            result = reader.materials(args.session_id, args.selections, index_revision=args.index_revision)
         elif args.command == "markers":
             result = reader.markers(name=args.name, kind=args.kind, session_id=args.session_id,
                                     project=args.project,
                                     limit=args.limit, offset=args.offset, index_revision=args.index_revision)
         else:
             result = reader.health()
+        if args.command == 'refresh':
+            result['elapsed_ms'] = round((time.monotonic() - started) * 1000)
         print(json.dumps(result, ensure_ascii=False))
-        return 0
+        return 1 if args.command == 'refresh' and result.get('partial') else 0
     except Exception as exc:
-        print(json.dumps({"error": type(exc).__name__, "detail": str(exc)}, ensure_ascii=False), file=sys.stderr)
+        from .reuse import error_code
+        print(json.dumps({"error": type(exc).__name__, "detail": str(exc),
+                          'error_code': error_code(exc), 'phase': getattr(exc, 'phase', phase),
+                          'elapsed_ms': round((time.monotonic() - started) * 1000)}, ensure_ascii=False), file=sys.stderr)
         return 2
     finally:
         if reader is not None:

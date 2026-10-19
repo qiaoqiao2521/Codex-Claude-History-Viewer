@@ -5,6 +5,14 @@ from audit.handoff import build_handoff_bundle
 from .provenance import selected_audit, validate_native_size
 
 
+def _stage(name, action, *args, **kwargs):
+    try:
+        return action(*args, **kwargs)
+    except Exception as error:
+        error.phase = name
+        raise
+
+
 def search(indexer, *, query=None, limit=20, offset=0, cwd=None, stable_order=False, brief=False):
     if not 1 <= limit <= 100 or offset < 0:
         raise ValueError("invalid_pagination")
@@ -13,16 +21,16 @@ def search(indexer, *, query=None, limit=20, offset=0, cwd=None, stable_order=Fa
         from .providers import uses_message_index
         if not uses_message_index(indexer):
             raise ValueError('brief_evidence_source_unsupported')
-    result = indexer.list_sessions_page(q=query, limit=limit, offset=offset, cwd=cwd,
-                                       sort='tool_evidence' if brief else 'last', **kwargs)
+    result = _stage('search', indexer.list_sessions_page, q=query, limit=limit, offset=offset, cwd=cwd,
+                    sort='tool_evidence' if brief else 'last', **kwargs)
     if not brief:
         return result
     from .reuse import _snippets, _related_tool_messages, MAX_RELATED_TOOL_MESSAGES
     from .evidence import redact_text, _redact
     items = []
     for row in result['items']:
-        snippets, partial = _snippets(indexer, row['id'], query or '')
-        related, related_truncated = _related_tool_messages(indexer, row['id'], snippets)
+        snippets, partial = _stage('snippets', _snippets, indexer, row['id'], query or '')
+        related, related_truncated = _stage('related_tool_messages', _related_tool_messages, indexer, row['id'], snippets)
         candidate = {key: row.get(key) for key in ('id', 'title', 'cwd', 'start_ts_ms', 'end_ts_ms')}
         candidate['tool_match_terms'] = row.get('tool_match_terms', 0)
         if 'content_status' in row:
