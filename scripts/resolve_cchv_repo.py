@@ -5,7 +5,8 @@ import sys
 from pathlib import Path
 
 
-REPO_NAME = "Codex-Claude-History-Viewer"
+REPO_NAMES = ("TraceMesh", "tracemesh", "Codex-Claude-History-Viewer")
+REPO_NAME = "TraceMesh"
 
 
 def is_repo_dir(path: Path) -> bool:
@@ -35,15 +36,18 @@ def iter_probe_candidates(script_dir: Path, cwd: Path, home: Path):
             continue
         seen_roots.add(resolved_root)
         yield resolved_root
-        yield resolved_root / REPO_NAME
-        yield resolved_root / "repos" / REPO_NAME
+        for name in REPO_NAMES:
+            yield resolved_root / name
+            yield resolved_root / "repos" / name
 
     if home:
         home = Path(home).expanduser()
-        yield home / ".ductor" / "workspace" / "repos" / REPO_NAME
-        yield home / "web" / "tools" / REPO_NAME
+        for name in REPO_NAMES:
+            yield home / ".ductor" / "workspace" / "repos" / name
+            yield home / "web" / "tools" / name
 
-    yield Path("/mnt/e/web/tools") / REPO_NAME
+    for name in REPO_NAMES:
+        yield Path("/mnt/e/web/tools") / name
 
 
 def resolve_repo_dir(hint=None, script_dir=None, cwd=None, env=None, home=None):
