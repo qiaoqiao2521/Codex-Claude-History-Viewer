@@ -129,6 +129,8 @@ class ActivityBoundaryTests(unittest.TestCase):
             result=self.query(refresh=True)
         self.assertTrue(result['partial'])
         self.assertIn('partial_refresh_unstable',result['sources'][0]['coverage']['refresh_error'])
+        self.assertEqual(result['receipt']['failed_sources'],['codex'])
+        self.assertEqual(result['receipt']['reasons'],[{'source':'codex','reason':'refresh_error'}])
         self.assertIn({'source':'codex','limitation':'refresh_error'},result['receipt']['limitations'])
         self.assertEqual({i['session_id'] for i in result['sources'][0]['items']},{'new','edge'})
     def test_headless_cli_and_invalid_timezone(self):
