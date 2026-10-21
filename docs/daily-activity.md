@@ -78,6 +78,10 @@ Python 公共接口是 `history_core.query_activity(stores, date=..., timezone=.
   `stale` 是已知变化/刷新失败；`unknown` 不推导无活动。
 - 顶层 `partial` 包含来源失败、过期、候选分页、缺时间和解析/身份警告。证据条数及正文
   截断另见每个 item/evidence，不能仅凭 `partial:false` 认定全文已读。
+- `query_activity` 同时返回 `receipt`。它集中列出请求来源、本次可读到的来源、失败来源、
+  各来源检查水位、失败原因和 `partial`，避免调用方分别读取 `coverage` 后漏掉预算失败。
+  `checked_through` 只有全部来源有相同且可证明的完整水位时才取时间；当前契约保留为
+  `null`。`receipt.partial:true` 表示不能据此得出“没有记录”或“覆盖完整”的结论。
 - SQL 预算沿用每来源 2 秒/有限 VM 指令；不包括扫描、锁等待、Python 格式化的总墙钟。
   记录 candidate/read/body counts 和 wall_seconds，命令墙钟须另测。
 

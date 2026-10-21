@@ -215,6 +215,59 @@ def read_store(indexer, source, root, *, date, timezone, refresh=False,
                     items=items, next_offset=offset+len(items) if offset+len(items)<total else None)
 
 
+def activity_receipt(*, start, end, timezone, sources):
+    """Summarize source coverage without turning an unknown result into zero work."""
+    covered_sources, failed_sources = [], []
+    declared_watermarks, reasons, limitations = {}, [], []
+    for result in sources:
+        source = result.get('source')
+        coverage = result.get('coverage') or {}
+        failed = bool(not coverage.get('supported') or coverage.get('readable') is False
+                      or coverage.get('reason') or coverage.get('refresh_error')
+                      or coverage.get('observation_error'))
+        if coverage.get('supported') and not failed:
+            covered_sources.append(source)
+        if failed:
+            failed_sources.append(source)
+            reason = coverage.get('reason')
+            if reason:
+                reasons.append({'source': source, 'reason': reason})
+            elif coverage.get('refresh_error'):
+                reasons.append({'source': source, 'reason': 'refresh_error'})
+            elif coverage.get('observation_error'):
+                reasons.append({'source': source, 'reason': 'observation_error'})
+        declared_watermarks[source] = {
+            'checked_through': coverage.get('checked_through'),
+            'last_successful_refresh': coverage.get('last_successful_refresh'),
+            'last_observed_at': coverage.get('last_observed_at'),
+            'freshness': coverage.get('freshness'),
+        }
+        for limitation in ('truncated', 'messages_without_verified_time',
+                           'identity_conflicts', 'unparsed_indexed_records',
+                           'recording_warnings', 'refresh_error', 'observation_error'):
+            if coverage.get(limitation):
+                limitations.append({'source': source, 'limitation': limitation})
+    checked_through = None
+    if sources and declared_watermarks:
+        values = [entry['checked_through'] for entry in declared_watermarks.values()]
+        checked_through = values[0] if values and all(value == values[0] for value in values) else None
+    # A readable cached page is still not proof that every recording was
+    # checked through now. Reserve partial=false for a future contract with an
+    # explicit, verifiable watermark for every requested source.
+    partial = True
+    return {
+        'window': window_metadata(start, end, timezone),
+        'requested_sources': [result.get('source') for result in sources],
+        'covered_sources': covered_sources,
+        'failed_sources': failed_sources,
+        'checked_through': checked_through,
+        'watermarks': declared_watermarks,
+        'partial': partial,
+        'reasons': reasons,
+        'limitations': limitations,
+    }
+
+
 def query_activity(stores, *, date, timezone, data_dir, refresh=False, limit=100,
                    offset=0, revisions=None, session_id=None, evidence_limit=6, message_offset=0, message_index=None, text_offset=0):
     """Each explicit (source, sessions_root) remains a separate identity and page."""
@@ -229,23 +282,48 @@ def query_activity(stores, *, date, timezone, data_dir, refresh=False, limit=100
     results = []
     for name, root in stores.items():
         source = canonical_source(name)
+        indexed = None
         if source not in SUPPORTED:
             results.append(dict(source=source, items=[], coverage=dict(supported=False, readable=None,
                 indexed=None, freshness='unknown', last_successful_refresh=None, last_observed_at=None, checked_through=None, truncated=None, query_budget_seconds=2, reason='activity_source_unsupported')))
             continue
         try:
             with HistoryReader(source, root, data_dir, validate_tree=False) as reader:
-                results.append(reader.activity(date=date, timezone=timezone, refresh=refresh,
-                    limit=limit, offset=offset, index_revision=(revisions or {}).get(source),
-                    session_id=session_id, evidence_limit=evidence_limit, message_offset=message_offset, message_index=message_index, text_offset=text_offset))
+                try:
+                    result = reader.activity(date=date, timezone=timezone, refresh=refresh,
+                        limit=limit, offset=offset, index_revision=(revisions or {}).get(source),
+                        session_id=session_id, evidence_limit=evidence_limit, message_offset=message_offset, message_index=message_index, text_offset=text_offset)
+                except Exception as exc:
+                    try:
+                        indexed = reader.health().get('has_index')
+                    except Exception:
+                        indexed = None
+                    results.append(dict(source=source, items=[], coverage=dict(
+                        supported=True, readable=False if isinstance(exc, OSError) else None,
+                        indexed=indexed, freshness='unknown', last_successful_refresh=None,
+                        last_observed_at=None, checked_through=None, truncated=None,
+                        query_budget_seconds=2, reason=error_code(exc),
+                        detail=redact_text(str(exc)))))
+                else:
+                    results.append(result)
         except Exception as exc:
             results.append(dict(source=source, items=[], coverage=dict(supported=True, readable=False if isinstance(exc, OSError) else None,
-                indexed=None, freshness='unknown', last_successful_refresh=None, last_observed_at=None, checked_through=None, truncated=None, query_budget_seconds=2, reason=error_code(exc), detail=redact_text(str(exc)))))
+                indexed=indexed, freshness='unknown', last_successful_refresh=None,
+                last_observed_at=None, checked_through=None, truncated=None,
+                query_budget_seconds=2, reason=error_code(exc), detail=redact_text(str(exc)))))
+    receipt = activity_receipt(start=start, end=end, timezone=timezone, sources=results)
+    partial = receipt['partial'] or any(not r['coverage'].get('indexed')
+                                        or r['coverage'].get('freshness') != 'observed_unchanged'
+                                        or r['coverage'].get('identity_conflicts')
+                                        or r['coverage'].get('unparsed_indexed_records')
+                                        or r['coverage'].get('recording_warnings')
+                                        or r['coverage'].get('messages_without_verified_time')
+                                        or r['coverage'].get('truncated')
+                                        or r['coverage'].get('reason')
+                                        for r in results)
     return dict(schema_version='history.activity.v1', date=date, timezone=timezone,
                 window=window_metadata(start, end, timezone), sources=results,
-                partial=any(not r['coverage'].get('indexed') or r['coverage'].get('freshness')!='observed_unchanged'
-                            or r['coverage'].get('identity_conflicts') or r['coverage'].get('unparsed_indexed_records') or r['coverage'].get('recording_warnings') or r['coverage'].get('messages_without_verified_time') or r['coverage'].get('truncated')
-                            for r in results),
+                partial=partial, receipt=receipt,
                 interpretation='User text is intent; assistant text is a report; tool records are evidence, not proof of present project state.')
 
 
