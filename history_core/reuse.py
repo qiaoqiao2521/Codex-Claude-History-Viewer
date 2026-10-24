@@ -260,7 +260,7 @@ def _indexed_excerpt(row):
             'excerpt_offset_basis': 'indexed_text'}
 
 
-def _indexed_snippets(idx, sid, query, terms):
+def _indexed_snippets(idx, sid, query, terms, role=None):
     """Rank public message evidence, then return three short excerpts.
 
     Number before filtering so deep links keep the reader's timestamp/id order.
@@ -287,7 +287,7 @@ def _indexed_snippets(idx, sid, query, terms):
             SELECT o.id,o.message_index,m.role,m.kind,hv_reuse_text_chars({text}) AS body_chars,
                    {occurrence} AS phrase_position,{term_columns}
             FROM ordered o JOIN messages m ON m.id=o.id
-            WHERE {_indexed_public_message_sql('m')}
+            WHERE {_indexed_public_message_sql('m')}{' AND m.role=?' if role else ''}
         ), matches AS (
             SELECT *,({coverage}) AS matched_terms,{position} AS match_position
             FROM located WHERE {predicate}
@@ -313,6 +313,8 @@ def _indexed_snippets(idx, sid, query, terms):
                  r.message_index ASC
     '''
     args = [sid, query, *terms]
+    if role:
+        args.append(role)
     with query_budget(idx) as conn:
         conn.create_function('hv_reuse_text_chars', 1, len, deterministic=True)
         conn.create_function('hv_reuse_indexed_window', 3, redact_indexed_window, deterministic=True)
@@ -329,14 +331,16 @@ def _related_tool_messages(idx, sid, snippets):
     from .evidence import redact_indexed_window
     placeholders = ','.join('?' for _ in indices)
     call_id = "CASE WHEN json_valid(m.activity_meta_json) THEN json_extract(m.activity_meta_json,'$.tool_call_id') END"
+    # Keep the small ordered selection outermost; an IN-list can otherwise make
+    # SQLite scan every session's messages before looking up these few calls.
     sql = f'''
         WITH ordered AS (
             SELECT id,ROW_NUMBER() OVER (ORDER BY ts_ms,id)-1 AS message_index
             FROM messages WHERE session_id=?
-        ), selected_calls AS (
+        ), selected_calls AS MATERIALIZED (
             SELECT o.message_index,{call_id} AS call_id,
                    CASE WHEN m.kind='tool_use' THEN 'tool_result' ELSE 'tool_use' END AS counterpart
-            FROM ordered o JOIN messages m ON m.id=o.id
+            FROM ordered o CROSS JOIN messages m ON m.id=o.id
             WHERE o.message_index IN ({placeholders}) AND m.role='tool'
               AND m.kind IN ('tool_use','tool_result')
         ), related AS MATERIALIZED (
@@ -364,12 +368,12 @@ def _related_tool_messages(idx, sid, snippets):
     return related, len(rows) > MAX_RELATED_TOOL_MESSAGES
 
 
-def _snippets(idx, sid, query):
+def _snippets(idx, sid, query, role=None):
     query, terms = _terms(query)
     matches = []
     native = not uses_message_index(idx)
     if not native:
-        return _indexed_snippets(idx, sid, query, terms)
+        return _indexed_snippets(idx, sid, query, terms, role=role)
     if native and idx.source in ('opencode', 'zcode'):
         from .provenance import validate_native_size
         validate_native_size(idx, sid)

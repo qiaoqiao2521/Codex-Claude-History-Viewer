@@ -2660,12 +2660,21 @@ class Indexer:
             _strip_audit_raw_json(item)
         return items
 
-    def _list_tool_evidence_page(self, q, start_ms, end_ms, limit, offset, cwd, file_path):
+    def _list_tool_evidence_page(self, q, start_ms, end_ms, limit, offset, cwd, file_path,
+                                 session_id=None, role=None):
         """Rank actual tool wording before SQL pagination; never infer success."""
         from .reuse import _terms, _path_match, query_budget
         query, terms = _terms(q)
         clean_limit, clean_offset = normalize_page_args(limit, offset)
         where, args = ['1=1'], []
+        if session_id is not None:
+            where.append('s.id=?')
+            args.append(session_id)
+        if role is not None:
+            role_scope = ("m.session_id=s.id AND m.role=? "
+                          f"AND {_indexed_public_message_sql('m')}")
+            where.append(f'EXISTS(SELECT 1 FROM messages m WHERE {role_scope})')
+            args.append(role)
         for column, operator, value in (('start_ts_ms', '>=', start_ms),
                                         ('start_ts_ms', '<=', end_ms), ('cwd', '=', cwd)):
             if value is not None:
@@ -2675,14 +2684,19 @@ class Indexer:
             where.append("hv_reuse_file_match(s.files_touched_json,?,COALESCE(s.cwd,''))=1")
             args.append(file_path)
         for term in terms:
-            where.append(_indexed_session_match_sql('s'))
-            args.extend(['%' + _escape_sql_like(term) + '%'] * 3)
+            like = '%' + _escape_sql_like(term) + '%'
+            if role is not None:
+                where.append(f"EXISTS(SELECT 1 FROM messages m WHERE {role_scope} AND m.text LIKE ? ESCAPE '\\')")
+                args.extend([role, like])
+            else:
+                where.append(_indexed_session_match_sql('s'))
+                args.extend([like] * 3)
         tool_scope = ("m.session_id=s.id AND m.role='tool' "
                       "AND m.kind IN ('tool_use','tool_result') "
                       f"AND {_indexed_public_message_sql('m')}")
         rank_args = []
         tool_terms = tool_phrase = title_phrase = '0'
-        if terms:
+        if terms and role is None:
             coverage = ' + '.join("(instr(lower(COALESCE(m.text,'')),lower(?))>0)" for _ in terms)
             tool_terms = f'COALESCE((SELECT MAX({coverage}) FROM messages m WHERE {tool_scope}),0)'
             rank_args.extend(terms)
@@ -2709,11 +2723,13 @@ class Indexer:
         has_more = len(rows) > clean_limit
         return {'items': items, 'limit': clean_limit, 'offset': clean_offset,
                 'has_more': has_more, 'next_offset': clean_offset + len(items) if has_more else None,
-                'ranking': 'matching_tool_terms_then_phrase_then_title_and_time'}
+                'ranking': 'matching_role_then_time' if role else 'matching_tool_terms_then_phrase_then_title_and_time'}
 
-    def list_sessions_page(self, q=None, start_ms=None, end_ms=None, limit=DEFAULT_PAGE_LIMIT, offset=0, cwd=None, sort=None, file_path=None, stable_order=False):
+    def list_sessions_page(self, q=None, start_ms=None, end_ms=None, limit=DEFAULT_PAGE_LIMIT, offset=0, cwd=None, sort=None, file_path=None, stable_order=False,
+                           session_id=None, role=None):
         if str(sort or '').strip().lower() == 'tool_evidence':
-            return self._list_tool_evidence_page(q, start_ms, end_ms, limit, offset, cwd, file_path)
+            return self._list_tool_evidence_page(q, start_ms, end_ms, limit, offset, cwd, file_path,
+                                                 session_id=session_id, role=role)
         clean_limit, clean_offset = normalize_page_args(limit, offset)
         terms = [t for t in str(q or "").split() if t]
 

@@ -187,7 +187,8 @@ class HistoryReader:
                     result['partial'] = True
         result['coverage'] = 'indexed_records_not_live_completeness'
 
-    def search(self, *, query=None, limit=20, offset=0, cwd=None, index_revision=None, brief=False):
+    def search(self, *, query=None, limit=20, offset=0, cwd=None, index_revision=None, brief=False,
+               session_id=None, role=None):
         if self.__indexer is None:
             raise ValueError('reader_closed')
         self.__check_root()
@@ -199,7 +200,8 @@ class HistoryReader:
                 raise ValueError('index_revision_required: restart from offset 0')
             if expected is not None and expected != before:
                 raise ValueError('index_revision_changed: restart from offset 0')
-            res = service.search(view, query=query, limit=limit, offset=offset, cwd=cwd, stable_order=True, brief=brief)
+            res = service.search(view, query=query, limit=limit, offset=offset, cwd=cwd, stable_order=True,
+                                 brief=brief, session_id=session_id, role=role)
             if not self.__native:
                 self.__capture_coverage(view, res)
             if self.__view_revision(view) != before:

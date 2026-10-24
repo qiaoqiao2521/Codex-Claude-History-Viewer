@@ -25,6 +25,20 @@
 
 简短候选用于选择要读的记录。定点展开相同修订的原文和必要上下文，再核对工具结果与当前项目验证；摘录、工具输入或历史退出码不能直接证明本次工作已完成。
 
+### 缩小查询与找回用户粘贴的解法
+
+已知目标会话时，给 `search --brief` 加 `--session SESSION_ID`，在正文查询和排序前限定会话。使用返回的索引 ID；多录制的 ID 可能带 `@recording-…`，不按前缀扩大范围。`--limit` 只限制返回条数，不能代替查询范围。
+
+找用户后来提供的方案、纠正或长段粘贴时，加 `--role user`；也支持 `assistant`、`tool`。角色条件在候选分页和摘录选择前生效。多个词仍以 AND 匹配同会话中该角色的公开消息，标题、目录或其他角色不能补足命中。角色搜索按会话最近活动排序，不计算工具优先分数；不传角色时沿用原排序。两个参数目前仅用于 CLI/Python 的 brief 消息索引入口。
+
+```bash
+python3 -m history_core --source codex --source-path ~/.codex/sessions --data-dir ~/.cache/cchv-reader search --brief --session SESSION_ID --role user --query '报错或解法关键词' --limit 3
+```
+
+长消息搜索完整索引正文；摘录仍最多三条、每条 240 字，绝对 `message_index` 不变。用返回的修订和 `excerpt_start` 展开命中段，再按需读取前后公开消息。用户粘贴的方案是候选材料，不自动认定为原创、已采用或已验证；前面的失败、后续动作和验证须分别回读。没有关键词时不提供正文摘录；会话分页不等于会话内所有命中的消息分页。
+
+工具配对按会话内的少量选中消息查询，避免为选中 Call ID 扫描全表。可选配对遭遇 `query_budget_exceeded` 时保留已经取得的命中，设置 `partial`、`snippets_partial` 和 `related_tool_messages_error`；空配对此时不表示没有对应记录。候选搜索或摘录本身失败仍显式报错，不转换为零命中。预算是本地 SQLite 查询成本限制，不是模型账户额度；全库 activity/markers 的预算失败须按各自阶段诊断。
+
 ## 从搜索直接展开消息
 
 使用搜索返回的 `session_id`、绝对 `message_index` 和 `index_revision`，无需取得 activity 日期或转换修订：

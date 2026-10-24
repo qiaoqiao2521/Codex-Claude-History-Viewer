@@ -44,6 +44,9 @@ def main(argv=None):
     query.add_argument("--project", default=None)
     query.add_argument("--index-revision", default=None, help="Previous page revision; required for offset > 0 in a new process")
     query.add_argument("--brief", action="store_true", help="Return compact candidates and public excerpts for message-index sources")
+    query.add_argument('--session', dest='session_id', help='Exact indexed session ID; requires --brief')
+    query.add_argument('--role', choices=('user', 'assistant', 'tool'),
+                       help='Match only public messages with this role; requires --brief')
     message = commands.add_parser("message", help="Expand a public search message using its index revision")
     message.add_argument("session_id")
     message.add_argument("message_index", type=int)
@@ -92,7 +95,9 @@ def main(argv=None):
         if args.command == "refresh":
             result = reader.refresh(paths=args.paths, max_bytes=args.max_bytes)
         elif args.command == "search":
-            result = reader.search(query=args.query, limit=args.limit, offset=args.offset, cwd=args.project, index_revision=args.index_revision, brief=args.brief)
+            result = reader.search(query=args.query, limit=args.limit, offset=args.offset, cwd=args.project,
+                                   index_revision=args.index_revision, brief=args.brief,
+                                   session_id=args.session_id, role=args.role)
         elif args.command == "handoff":
             result = reader.handoff(args.session_id, include_plans=args.include_plans)
         elif args.command == "message":

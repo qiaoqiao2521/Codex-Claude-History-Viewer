@@ -45,6 +45,8 @@ python3 -m history_core --source codex --source-path /path/to/sessions --data-di
 
 上述单源 CLI 的异常回执增加 `phase`、`error_code` 和 `elapsed_ms`。摘录或关联工具查询失败可定位到 `snippets`、`related_tool_messages`；`interrupted` 映射为 `query_budget_exceeded`，不会被当成零命中。
 
+brief 的可选工具配对预算超限会保留已取命中，并在候选的 `related_tool_messages_error` 和 `partial` 中披露。已知目标时可用 `search --brief --session ID` 缩小范围；用户粘贴的解法另用 `--role user` 检索。详见[检索边界](search-semantics.md#缩小查询与找回用户粘贴的解法)。
+
 SQLite VM 预算只约束相应查询，不是文件读取、完整消息脱敏或整条流程的硬超时。先看阶段，不单凭总耗时调大预算。
 
 Codex refresh 的退出码：0 表示本次选择范围没有已报告缺口；1 表示 partial，查看各会话回执；2 表示调用失败。刷新成功不证明实时全库完整或业务已验收。

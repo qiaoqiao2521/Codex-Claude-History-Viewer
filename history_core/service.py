@@ -1,5 +1,6 @@
 """Shared read model for machine callers and the optional human workspace."""
 from datetime import datetime, timezone
+import sqlite3
 
 from audit.handoff import build_handoff_bundle
 from .provenance import selected_audit, validate_native_size
@@ -13,10 +14,17 @@ def _stage(name, action, *args, **kwargs):
         raise
 
 
-def search(indexer, *, query=None, limit=20, offset=0, cwd=None, stable_order=False, brief=False):
+def search(indexer, *, query=None, limit=20, offset=0, cwd=None, stable_order=False, brief=False,
+           session_id=None, role=None):
     if not 1 <= limit <= 100 or offset < 0:
         raise ValueError("invalid_pagination")
     kwargs = {"stable_order": True} if stable_order else {}
+    if role is not None and role not in ('user', 'assistant', 'tool'):
+        raise ValueError('invalid_search_role')
+    if session_id is not None or role is not None:
+        if not brief:
+            raise ValueError('search_scope_requires_brief')
+        kwargs.update(session_id=session_id, role=role)
     if brief:
         from .providers import uses_message_index
         if not uses_message_index(indexer):
@@ -29,8 +37,17 @@ def search(indexer, *, query=None, limit=20, offset=0, cwd=None, stable_order=Fa
     from .evidence import redact_text, _redact
     items = []
     for row in result['items']:
-        snippets, partial = _stage('snippets', _snippets, indexer, row['id'], query or '')
-        related, related_truncated = _stage('related_tool_messages', _related_tool_messages, indexer, row['id'], snippets)
+        snippets, partial = _stage('snippets', _snippets, indexer, row['id'], query or '',
+                                  **({'role': role} if role is not None else {}))
+        related_error = None
+        try:
+            related, related_truncated = _stage('related_tool_messages', _related_tool_messages, indexer, row['id'], snippets)
+        except sqlite3.OperationalError as error:
+            from .reuse import error_code
+            if error_code(error) != 'query_budget_exceeded':
+                raise
+            related, related_truncated, partial = [], False, True
+            related_error = {'error_code': 'query_budget_exceeded', 'phase': 'related_tool_messages'}
         candidate = {key: row.get(key) for key in ('id', 'title', 'cwd', 'start_ts_ms', 'end_ts_ms')}
         candidate['tool_match_terms'] = row.get('tool_match_terms', 0)
         if 'content_status' in row:
@@ -42,12 +59,16 @@ def search(indexer, *, query=None, limit=20, offset=0, cwd=None, stable_order=Fa
                 candidate[key] = redact_text(candidate[key])
         candidate.update(snippets=_redact(snippets), snippets_partial=partial,
                          related_tool_messages=_redact(related), related_tool_messages_truncated=related_truncated)
+        if related_error:
+            candidate['related_tool_messages_error'] = related_error
         items.append(candidate)
     incomplete = sum(entry.get('content_status') != 'decoded_text'
                      for entry in getattr(indexer, '_coverage', {}).values())
     compact = dict(result, items=items, mode='brief',
                    related_tool_messages_limit=MAX_RELATED_TOOL_MESSAGES,
                    partial=bool(result.get('partial') or incomplete or any(item['snippets_partial'] for item in items)))
+    if session_id is not None or role is not None:
+        compact['scope'] = {'session_id': session_id, 'role': role}
     if incomplete:
         compact['content_warnings'] = [{'source': indexer.source, 'incomplete_sessions': incomplete}]
     return compact
