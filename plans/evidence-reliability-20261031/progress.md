@@ -2,7 +2,11 @@
 
 ## 当前
 
-源码工程完成，八组问题及独立复核的四处边界均已修复。根 Codex 串行整合；内置子 Agent 分别处理前端、备份/录制身份、交接脱敏并交叉检查。Git 交付采用既有 main 普通提交／推送，远端为 qiaoqiao2521/Codex-Claude-History-Viewer；不发新 Release、不替换安装。
+源码工程完成，八组问题及独立复核的四处边界均已修复。根 Codex 串行整合；内置子 Agent 分别处理前端、备份/录制身份、交接脱敏并交叉检查。Git 交付采用既有 main 普通提交／推送，远端为 qiaoqiao2521/AgentTraceMesh；不发新 Release、不替换安装。
+
+用户随后指出 GitHub 仍用旧仓库名。本轮将实际仓库改为 AgentTraceMesh（沿用仓库 ID 1381240614），同步 origin 与现行文档，启动器增加新目录并保留旧目录和 CCHV_* 配置兼容；不更改历史计划或已发布产物。
+
+改名补修验收：新 API 名称与仓库 ID 读回一致；origin fetch/push 均为新地址；6 项目录定位测试、实际本机启动路径解析与 diff 检查通过。此补修知识状态为 no_reusable_delta：只更新项目身份与兼容入口，沿用前轮知识判断及发布交接。
 
 ## 本轮验证
 

@@ -1,13 +1,13 @@
 # 明确日期的本地活动证据（无头）
 
-TraceMesh 是此前讨论中的产品名；当前展示名称为 AgentTraceMesh，仓库仍为
-Codex-Claude-History-Viewer，启动命令仍为 `cchv`。本功能不做名称或安装迁移。
+当前产品和仓库名称为 [AgentTraceMesh](https://github.com/qiaoqiao2521/AgentTraceMesh)，
+原仓库名为 Codex-Claude-History-Viewer。启动命令仍为 `cchv`，本机已有目录仍为 TraceMesh。
 从本仓库运行，Python 3.11+，无需 Web、DISPLAY、模型或后台进程。
 
 ## 先查候选，再定点展开
 
 ```bash
-cd /home/muqiao/桌面/Codex-Claude-History-Viewer
+cd /home/muqiao/桌面/TraceMesh
 python3 -m history_core activity \
   --date 2026-09-27 --timezone Asia/Shanghai \
   --sources codex,claude,mcode \

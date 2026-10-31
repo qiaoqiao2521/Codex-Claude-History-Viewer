@@ -5,8 +5,8 @@ import sys
 from pathlib import Path
 
 
-REPO_NAMES = ("TraceMesh", "tracemesh", "Codex-Claude-History-Viewer")
-REPO_NAME = "TraceMesh"
+REPO_NAME = "AgentTraceMesh"
+REPO_NAMES = (REPO_NAME, "TraceMesh", "tracemesh", "Codex-Claude-History-Viewer")
 
 
 def is_repo_dir(path: Path) -> bool:
@@ -61,10 +61,13 @@ def resolve_repo_dir(hint=None, script_dir=None, cwd=None, env=None, home=None):
         hint,
         env.get("REPO_DIR"),
         env.get("CCHV_REPO_DIR"),
-        env.get("CCHV_WORKSPACE_ROOT") and Path(env["CCHV_WORKSPACE_ROOT"]) / "repos" / REPO_NAME,
     ):
         if value:
             candidates.append(Path(value).expanduser())
+
+    if env.get("CCHV_WORKSPACE_ROOT"):
+        candidates.extend(Path(env["CCHV_WORKSPACE_ROOT"]).expanduser() / "repos" / name
+                          for name in REPO_NAMES)
 
     candidates.extend(iter_probe_candidates(script_dir=script_dir, cwd=cwd, home=home))
 
@@ -83,7 +86,7 @@ def resolve_repo_dir(hint=None, script_dir=None, cwd=None, env=None, home=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Resolve the Codex Claude History Viewer repo directory")
+    parser = argparse.ArgumentParser(description="Resolve the AgentTraceMesh repo directory")
     parser.add_argument("--hint", default="")
     parser.add_argument("--script-dir", default=str(Path(__file__).resolve().parent))
     parser.add_argument("--cwd", default=str(Path.cwd()))

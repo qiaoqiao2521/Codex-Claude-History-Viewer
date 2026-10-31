@@ -1,5 +1,7 @@
 # AgentTraceMesh — Project
 
+Repository: [qiaoqiao2521/AgentTraceMesh](https://github.com/qiaoqiao2521/AgentTraceMesh). Renamed from Codex-Claude-History-Viewer on 2026-10-31; existing `cchv` commands and local directory aliases remain compatible.
+
 ## Why
 
 Local Agent CLIs and desktop clients leave useful session history, but raw transcripts are slow to search and poor at answering what an Agent actually delivered. This project turns those records into a fast local history inbox and an evidence-backed engineering ledger.

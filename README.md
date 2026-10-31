@@ -1,5 +1,7 @@
 # AgentTraceMesh
 
+Repository: [qiaoqiao2521/AgentTraceMesh](https://github.com/qiaoqiao2521/AgentTraceMesh).
+
 Formerly **Codex & Claude History Viewer**. AgentTraceMesh focuses on local Agent conversation records: find conversations, trace original evidence, and carry useful context into the next task. It is independent of [OpsPAI/TraceMesh](https://github.com/OpsPAI/TraceMesh). Existing `cchv` commands, repository paths, data directories and preference keys remain compatible.
 
 **Agent integration comes first:** retrieve work evidence, recover original requirements and later corrections, then hand selected context to an Agent for independent code review. The independent human trial (U1/M3) was cancelled by the user on 2026-10-01; it is no longer a release gate. Web reading and export previews remain available.
@@ -156,8 +158,11 @@ The launcher now probes the repo path automatically in this order:
 
 - explicit `REPO_DIR` / `CCHV_REPO_DIR`
 - repo-local launch from `scripts/`
-- nearby workspace paths such as `./repos/Codex-Claude-History-Viewer`
-- user-level fallbacks such as `~/.ductor/workspace/repos/Codex-Claude-History-Viewer`
+- `CCHV_WORKSPACE_ROOT` with the repo under `repos/AgentTraceMesh`
+- nearby workspace paths such as `./repos/AgentTraceMesh`
+- user-level fallbacks such as `~/.ductor/workspace/repos/AgentTraceMesh`
+
+Legacy directory names `TraceMesh`, `tracemesh`, and `Codex-Claude-History-Viewer` remain supported.
 
 Install a desktop entry on Ubuntu:
 
