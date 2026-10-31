@@ -2,9 +2,9 @@
 from __future__ import annotations
 import json
 import io
+import logging
 import os
 import re
-import shutil
 import sqlite3
 import threading
 import time
@@ -24,6 +24,51 @@ SEARCH_MATCH_CONTEXT_CHARS = 1_600
 SEARCH_MATCH_MAX_CHARS = 3_600
 DEFAULT_PAGE_LIMIT = 50
 SESSION_PREVIEW_CACHE_SIZE = 12
+
+
+def _move_to_backup(source, directory, session_id):
+    """Preserve the source inode under an exclusive name before unlinking.
+
+    Open writers continue appending to that inode, including after unlink.
+    Unsupported/cross-device hard links leave the source in place: a copy
+    cannot safely replace this move while another process can append.
+    """
+    source, directory = Path(source), Path(directory)
+    directory.mkdir(parents=True, exist_ok=True)
+    # Link the target inode, not a relative symlink that would break on move.
+    original = source.resolve(strict=True)
+    attempt = 0
+    while True:
+        if attempt == 0:
+            name = source.name
+        else:
+            suffix = f"-{session_id[:8]}" + (f"-{attempt}" if attempt > 1 else "")
+            name = source.stem + suffix + source.suffix
+        destination = directory / name
+        try:
+            os.link(original, destination)
+            break
+        except FileExistsError:
+            attempt += 1
+        except NotImplementedError as exc:
+            raise OSError("backup_hardlink_unsupported_source_preserved") from exc
+    try:
+        with destination.open("rb") as backup:
+            os.fsync(backup.fileno())
+        if os.name != "nt":
+            directory_fd = os.open(directory, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+    except BaseException:
+        try:
+            destination.unlink()
+        except OSError:
+            pass
+        raise
+    source.unlink()
+    return destination
 
 
 def _neutral_audit_summary():
@@ -2238,21 +2283,26 @@ class Indexer:
     def _store_parsed_session(self, row, session, mtime, signature, path, session_files, *,
                               build_audits=True, preserve_recordings=False, content=None):
         collision = self.conn.execute("SELECT file_path FROM sessions WHERE id=?", (session['id'],)).fetchone()
-        if (preserve_recordings or self.source == 'mcode') and collision and collision[0] != str(path) and Path(collision[0]) in session_files:
-            if self.source == 'mcode':
+        conflict = collision and collision[0] != str(path) and Path(collision[0]) in session_files
+        if conflict or (row and row['id'] != session['id']):
+            if self.source == 'mcode' and conflict:
                 raise ValueError('duplicate_session_identity')
             # A copied/forked recording must not erase another recording's
-            # messages. Keep native identity separately from the cache key.
+            # messages, regardless of the caller's preserve_recordings flag.
+            # Reuse an existing recording alias even if its native-ID owner
+            # has disappeared, so edits do not change this recording's key.
             import hashlib
             native_id = session['id']
             suffix = hashlib.sha256(str(path.relative_to(self.sessions_dir)).encode()).hexdigest()[:16]
-            session['id'] = native_id + '@recording-' + suffix
-            alias_owner = self.conn.execute('SELECT file_path FROM sessions WHERE id=?', (session['id'],)).fetchone()
-            if alias_owner and alias_owner[0] != str(path):
-                raise ValueError('duplicate_session_identity')
-            session.setdefault('activity_metadata', {}).update(
-                identity_conflict=True, native_session_id=native_id,
-                identity_policy='distinct recording; no automatic work deduplication')
+            recording_id = native_id + '@recording-' + suffix
+            if conflict or (row and row['id'] == recording_id):
+                session['id'] = recording_id
+                alias_owner = self.conn.execute('SELECT file_path FROM sessions WHERE id=?', (session['id'],)).fetchone()
+                if alias_owner and alias_owner[0] != str(path):
+                    raise ValueError('duplicate_session_identity')
+                session.setdefault('activity_metadata', {}).update(
+                    identity_conflict=True, native_session_id=native_id,
+                    identity_policy='distinct recording; no automatic work deduplication')
         if row and row["id"] != session["id"]:
             self.conn.execute("DELETE FROM messages WHERE session_id = ?", (row["id"],))
             self.conn.execute("DELETE FROM sessions WHERE id = ?", (row["id"],))
@@ -2932,13 +2982,24 @@ class Indexer:
 
     def get_session_metadata(self, session_id):
         with self.lock:
+            columns = {row[1] for row in self.conn.execute("PRAGMA table_info(sessions)")}
+            metadata_column = ", activity_metadata_json" if "activity_metadata_json" in columns else ""
             session = self.conn.execute(
-                "SELECT id, start_ts_ms, end_ts_ms, title, message_count, cwd, pinned FROM sessions WHERE id = ?",
+                "SELECT id, start_ts_ms, end_ts_ms, title, message_count, cwd, pinned"
+                + metadata_column + " FROM sessions WHERE id = ?",
                 (session_id,),
             ).fetchone()
             if not session:
                 return None
             payload = dict(session)
+            try:
+                metadata = json.loads(payload.pop("activity_metadata_json", None) or "{}")
+            except (ValueError, TypeError):
+                metadata = {}
+            if isinstance(metadata, dict):
+                for field in ("identity_conflict", "native_session_id"):
+                    if field in metadata:
+                        payload[field] = metadata[field]
             total_row = self.conn.execute(
                 "SELECT COUNT(*) AS total FROM messages WHERE session_id = ?",
                 (session_id,),
@@ -3188,13 +3249,11 @@ class Indexer:
             if not row:
                 return False, "not_found"
             file_path = Path(row["file_path"])
-            if file_path.exists():
-                archived_dir = Path(archived_dir)
-                archived_dir.mkdir(parents=True, exist_ok=True)
-                dest = archived_dir / file_path.name
-                if dest.exists():
-                    dest = archived_dir / (file_path.stem + f"-{session_id[:8]}" + file_path.suffix)
-                shutil.move(str(file_path), str(dest))
+            try:
+                _move_to_backup(file_path, archived_dir, session_id)
+            except OSError as exc:
+                logging.getLogger(__name__).warning("Archive backup failed for %s: %s", session_id, exc)
+                return False, "backup_failed"
             self.conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
             self.conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
             self.conn.commit()
@@ -3206,19 +3265,16 @@ class Indexer:
         backup_dir = deleted_dir / (
             f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{backup_label}"
         )
-        backup_dir.mkdir(parents=True, exist_ok=True)
-
         session_ids = []
         for row in rows:
             session_id = row["id"]
-            session_ids.append(session_id)
             file_path = Path(row["file_path"])
-            if not file_path.exists():
+            try:
+                _move_to_backup(file_path, backup_dir, session_id)
+            except OSError as exc:
+                logging.getLogger(__name__).warning("Deletion backup failed for %s: %s", session_id, exc)
                 continue
-            dest = backup_dir / file_path.name
-            if dest.exists():
-                dest = backup_dir / (file_path.stem + f"-{session_id[:8]}" + file_path.suffix)
-            shutil.move(str(file_path), str(dest))
+            session_ids.append(session_id)
 
         if session_ids:
             placeholders = ",".join("?" for _ in session_ids)
@@ -3249,7 +3305,9 @@ class Indexer:
                 deleted_dir,
                 slugify_path_label(project),
             )
-            return True, "deleted", deleted_count, backup_dir
+            complete = deleted_count == len(rows)
+            detail = "deleted" if complete else "partial" if deleted_count else "backup_failed"
+            return complete, detail, deleted_count, backup_dir
 
     def cleanup_weak_sessions(self, deleted_dir, min_user_messages=5, project=None):
         with self.lock:
@@ -3283,7 +3341,9 @@ class Indexer:
                 deleted_dir,
                 label,
             )
-            return True, "deleted", deleted_count, backup_dir
+            complete = deleted_count == len(weak_rows)
+            detail = "deleted" if complete else "partial" if deleted_count else "backup_failed"
+            return complete, detail, deleted_count, backup_dir
 
     def pin_session(self, session_id, pinned):
         with self.lock:

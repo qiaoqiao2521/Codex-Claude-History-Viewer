@@ -1,5 +1,7 @@
 # Work index
 
+- **源码验收完成：历史证据可靠性**：[计划](evidence-reliability-20261031/task_plan.md) / [状态](evidence-reliability-20261031/progress.md)。备份保留、旧出口脱敏、请求边界、共享索引规则及长会话交互；安装、发行与真实私有长会话未复测。
+
 - **已完成：工具借鉴与知识收尾**：[计划](tool-knowledge-reuse-20261008/task_plan.md) / [状态](tool-knowledge-reuse-20261008/progress.md)。结构化结果、工具证据候选、直接消息展开、技能/插件日志标记与知识原页读回。2026-10-10 复查交付进度见状态页。
 
 - **已完成：AGY 整库累计上限修复**：[计划](agy-store-cap/task_plan.md) / [验证](agy-store-cap/progress.md)。不再因整库超过 256 MiB 拒绝初始化，保留逐会话限制和不完整覆盖披露。

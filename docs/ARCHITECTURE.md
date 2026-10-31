@@ -30,7 +30,9 @@ A dependency-free Python HTTP server indexes local Agent histories into per-sour
 
 Codex expanded results and collapsed previews share one normalizer. It reads plain text, native/JSON `output`/`text`/`content` envelopes, and text-block lists. Explicit errors and nonzero exits survive multi-result wrappers. Image/audio/binary resource bodies use omission markers. Empty and unsupported native shapes remain visible, with original line references retained.
 
-Codex parser version 8 and Claude parser version 6 reparse older derived caches on explicit refresh; source recordings stay read-only. This rendering does not replace the separate deterministic audit extractor or establish application acceptance.
+Web and machine readers obtain parser versions from `providers.parser_version`; refresh reparses older derived caches. Codex is version 8 and Claude version 6. Ordinary scans preserve distinct same-ID recordings using the existing recording aliases; ambiguous aliases do not promise exact native resume. Source recordings stay read-only during indexing. This rendering does not replace the separate deterministic audit extractor or establish application acceptance.
+
+Explicit archive and project deletion retain the source inode through an exclusively created backup link before removing its original path. Name conflicts cannot overwrite older backups, and an active writer can continue appending to the retained inode. Cross-filesystem or unsupported-link failures keep the original and its index entry; batch receipts disclose partial success.
 
 Linux source expansion uses `providers.py` for shared discovery/identity, `codebuddy.py` for native CBC envelopes, `extra_parsers.py` for Gemini recording updates and pi/Prime trees, and `copilot.py` for event logs. Gemini `.json` and `.jsonl` share one materializer; migrated copies are filtered. `zcode.py` reuses the OpenCode part/audit renderer with sequence ordering and a connection-local TEMP VIEW to project message metrics; it never changes the native schema. See [paths and capability matrix](local-cli-sources.md).
 
@@ -39,6 +41,8 @@ Linux source expansion uses `providers.py` for shared discovery/identity, `codeb
 ### Source routing and HTTP API
 
 `SourceBackend` binds a runtime system and source to an indexer. `Handler` routes `/api/{system}/{source}/...` requests and serves the static application. The runtime exposes Windows/WSL or Linux according to the host rather than presenting unavailable systems.
+
+API requests validate Host against the listening port and local destination. State-changing or network-capable requests require JSON and reject foreign Origin/cross-site requests; CLI JSON calls without Origin remain supported. Reindex uses POST. Material writes additionally require an actual loopback peer. Session search checks the displayed source revision before and after reading, just like message retrieval; the browser discards stale windows until the session is reopened.
 
 ### Recorded skill and output-style markers
 
@@ -53,6 +57,8 @@ Audit schema version 4 revokes a previous final answer when later meaningful use
 ### Handoff layer
 
 `audit/handoff.py` builds compact or standard continuation capsules from deterministic audit data, selected user constraints, verification results, evidence locations, and explicit unknown current Git state unless separately requested. It intentionally excludes raw transcripts, hidden prompts, reasoning, and full tool output. The frontend renders the selected capsule as themed markdown (`.handoff-theme-*`), copies it as rich text, and exports `.md` / standalone themed `.html`.
+
+Legacy capsules and optional plan excerpts reuse the selection export's common-pattern secret masking before truncation and rendering. Source locators and revision identities remain intact; this is not full anonymisation. Raw local audit viewing retains its original evidence.
 
 `history_core/review.py` adds a requirements-first review export on top of `evidence.selection_bundle`. `GET /api/reuse/review-requests` pages ordinary user messages with absolute indices and source/index revision checks; `POST /api/reuse/review-preview` requires a selected original user message and adds an independent current-code review prompt. The workspace previews/copies/downloads this packet without executing a model or probing the historical project path. Summaries cannot substitute for original requirements; code verification remains `not_performed`. See [workflow and limits](model-review-handoff.md).
 

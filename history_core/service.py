@@ -94,13 +94,15 @@ def handoff(indexer, session_id, *, include_plans=False):
         metadata = indexer.get_session_metadata(session_id)
         from pathlib import Path
         from .sources import scan_plan_files
+        from .evidence import redact_text
         from audit.handoff import render_handoff
         cwd = metadata.get("cwd") or ""
         plans = scan_plan_files(cwd) if cwd and Path(cwd).is_absolute() else []
         result["payload"]["specmesh"] = {
             "status": "candidate_context" if plans else "missing", "authority": "unverified_project_files",
-            "files": [{"path": p.get("rel_path"), "mtime_ms": p.get("mtime_ms"),
-                       "sections": {str(k): str(v)[:600] for k, v in (p.get("sections") or {}).items()}}
+            "files": [{"path": redact_text(p.get("rel_path") or ""), "mtime_ms": p.get("mtime_ms"),
+                       "sections": {redact_text(str(k)): redact_text(str(v))[:600]
+                                    for k, v in (p.get("sections") or {}).items()}}
                       for p in plans[:3]],
             "max_files": 3, "max_section_chars": 600,
         }
