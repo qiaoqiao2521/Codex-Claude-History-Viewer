@@ -53,7 +53,7 @@ def _cases_main(argv):
         else:
             print(json.dumps(result, ensure_ascii=False))
         return 0
-    except (ValueError, OSError, TypeError, KeyError) as exc:
+    except (ValueError, OSError, TypeError, KeyError, RecursionError) as exc:
         print(json.dumps({'error': type(exc).__name__, 'detail': str(exc)},
                          ensure_ascii=False), file=sys.stderr)
         return 2

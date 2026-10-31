@@ -658,7 +658,10 @@ class Handler(SimpleHTTPRequestHandler):
                 if not self._loopback_request() or not self._same_origin_json():
                     return self.send_json({'error': 'case_local_request_required'}, status=403)
                 from history_core.problem_cases import save_case
-                return self.send_json(save_case(getattr(self, '_case_dir', None), data))
+                try:
+                    return self.send_json(save_case(getattr(self, '_case_dir', None), data))
+                except RecursionError:
+                    return self.send_json({'error': 'case_nesting_invalid'}, status=400)
             if endpoint == 'refresh':
                 backend=self._source_backends.get((data.get('system'),data.get('source')))
                 if backend is None: raise ValueError('source_unavailable')

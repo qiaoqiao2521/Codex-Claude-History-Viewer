@@ -485,6 +485,7 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   const caseItem = {id: 'feedback-attribution', title: '三路反馈 <script>literal</script>', question: '为什么原来的分页方案被替换？', project: '/work/project', tags: ['纠偏'], now: {judgment: '先记录反馈归因'}, next_action: '在下一次任务核对适用条件'};
   const canonical = '# 问题案例\n\n## 现在怎样判断\n按问题解释。\n\n## 为什么改变\n原来分页遗漏上下文。\n\n## 下次怎样做\n先核对原因。<img src=x onerror=alert(1)>';
   const detail = {case: caseItem, markdown: canonical, origin: 'example', editable_path: '/local/problem-cases/feedback-attribution.json'};
+  api.state.healthSequence = 0; // A fresh deep link has not requested provider health.
   browserLocation.search = '?view=cases&q=%E5%88%86%E9%A1%B5&case=feedback-attribution';
   fetcher = async url => {
     const parsed = new URL(url, 'http://local');
@@ -514,6 +515,37 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   assert.match(elements.caseOrigin.textContent, /同 ID.*覆盖示例/);
   assert.match(elements.caseEditablePath.textContent, /feedback-attribution.json/);
   assert.match(elements.caseDetailStatus.textContent, /Agent 或用户解释.*来源引用未重新核对.*当前任务未验收/);
+
+  // Leaving the independent case entry initializes source filters once, including while pending.
+  const lazyHealth = deferred();
+  fetcher = async url => url === '/api/reuse/health' ? lazyHealth.promise : response({items: []});
+  const beforeLeavingCases = calls.length;
+  elements.searchTab.click();
+  elements.projectsTab.click();
+  elements.casesTab.click();
+  elements.searchTab.click();
+  assert.equal(calls.slice(beforeLeavingCases).filter(([url]) => url === '/api/reuse/health').length, 1);
+  lazyHealth.resolve(response({sources: [{source: 'codex', status: 'ready'}, {source: 'claude', status: 'ready'}]}));
+  await flush();
+  assert.deepEqual(elements.reuseSource.children.map(option => option.value), ['', 'codex', 'claude']);
+  elements.projectsTab.click(); elements.casesTab.click();
+  assert.equal(calls.slice(beforeLeavingCases).filter(([url]) => url === '/api/reuse/health').length, 1);
+
+  // Projects can also be the first destination; a manual newer check supersedes the lazy one.
+  api.state.healthSequence = 0;
+  const projectHealth = deferred();
+  fetcher = async url => url === '/api/reuse/health' ? projectHealth.promise : response({items: []});
+  const beforeLeavingForProjects = calls.length;
+  elements.projectsTab.click();
+  assert.equal(calls.slice(beforeLeavingForProjects).filter(([url]) => url === '/api/reuse/health').length, 1);
+  fetcher = async () => response({sources: [{source: 'claude', status: 'ready'}], version: 'newest'});
+  await api.loadHealth();
+  projectHealth.resolve(response({sources: [{source: 'codex', status: 'ready'}], version: 'obsolete'}));
+  await flush();
+  assert.deepEqual(elements.reuseSource.children.map(option => option.value), ['', 'claude']);
+  assert.match(elements.workspaceStatus.textContent, /newest/);
+  elements.casesTab.click();
+
   await api.copyCase(); assert.equal(clipboard.at(-1), canonical);
   api.downloadCase(); assert.equal(await downloads.at(-1).text(), canonical);
   copyFails = true; await api.copyCase(); assert.match(elements.caseDetailStatus.textContent, /浏览器未允许复制/); copyFails = false;
@@ -541,8 +573,10 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
 
   // Offset pagination keeps submitted case filters; edits require an explicit refresh.
   const caseRequests = [];
+  let failCasePage = false;
   fetcher = async url => {
     const parsed = new URL(url, 'http://local'); caseRequests.push(parsed);
+    if (failCasePage) return failed('offline');
     return response({items: [{...caseItem, id: parsed.searchParams.get('offset') === '0' ? 'first' : 'second'}], total: 2, next_offset: parsed.searchParams.get('offset') === '0' ? 20 : null, partial: false, errors: []});
   };
   elements.casesQuery.value = '反馈'; elements.casesProject.value = '/work/a b';
@@ -553,9 +587,20 @@ const flush = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(caseRequests[0].searchParams.get('project'), '/work/a b');
   assert.equal(caseRequests[0].searchParams.get('limit'), '20');
   elements.casesQuery.value = 'unsent edit';
+  failCasePage = true;
+  await api.searchCases(true);
+  assert.equal(elements.casesList.children.length, 1, 'failed pagination preserves already readable cases');
+  assert.equal(api.state.pages.cases.items[0].id, 'first');
+  assert.equal(api.state.pages.cases.nextOffset, 20, 'the same page remains available for retry');
+  assert.equal(elements.casesMore.hidden, false);
+  assert.equal(elements.casesMore.disabled, false);
+  assert.match(elements.casesStatus.textContent, /加载更多.*失败.*保留.*重试/);
+  failCasePage = false;
   await api.searchCases(true);
   assert.equal(caseRequests[1].searchParams.get('offset'), '20');
   assert.equal(caseRequests[1].searchParams.get('q'), '反馈');
+  assert.equal(caseRequests[2].searchParams.get('offset'), '20');
+  assert.equal(caseRequests[2].searchParams.get('q'), '反馈');
   assert.equal(elements.casesList.children.length, 2);
   assert.equal(elements.casesMore.hidden, true);
   assert.equal(new URL(replacedUrls.at(-1), 'http://local').searchParams.get('q'), '反馈');

@@ -162,6 +162,37 @@ class ProblemCaseTests(unittest.TestCase):
         for key, value in preserved.items():
             self.assertEqual(shown["case"]["evidence"][0][key], value)
 
+    def test_secret_fields_mask_complete_values_for_all_json_shapes(self):
+        data = self.data()
+        data["now"]["remaining"] = [
+            {"password": {"value": "SYNTHETIC_OBJECT_SECRET_2985"}},
+            {"token": [{"value": "SYNTHETIC_LIST_SECRET_2986"}]},
+            {"client_secret": 57402987},
+        ]
+        data["authorization"] = "context_only"
+        data["evidence"][0]["authorization"] = "context_only"
+        data["evidence"][0]["body"] = {"api_key": {"value": "SYNTHETIC_BODY_SECRET_2988"}}
+        identity = {key: value for key, value in data["evidence"][0].items()
+                    if key not in ("body", "authorization")}
+
+        saved = save_case(self.directory, data)
+        shown = get_case(self.directory, "feedback")
+        listed = list_cases(self.directory)
+        outputs = [json.dumps(value) for value in (saved, shown, listed)]
+        outputs.append((self.directory / "feedback.json").read_text())
+        for secret in ("SYNTHETIC_OBJECT_SECRET_2985", "SYNTHETIC_LIST_SECRET_2986",
+                       "57402987", "SYNTHETIC_BODY_SECRET_2988"):
+            for output in outputs:
+                self.assertNotIn(secret, output)
+        self.assertEqual(saved["case"]["now"]["remaining"], [
+            {"password": "[REDACTED]"}, {"token": "[REDACTED]"},
+            {"client_secret": "[REDACTED]"},
+        ])
+        self.assertEqual(shown["case"]["authorization"], "context_only")
+        self.assertEqual(shown["case"]["evidence"][0]["authorization"], "context_only")
+        for key, value in identity.items():
+            self.assertEqual(shown["case"]["evidence"][0][key], value)
+
     def test_direct_json_edits_are_visible_without_refresh_or_hash_lock(self):
         save_case(self.directory, self.data())
         path = self.directory / "feedback.json"

@@ -508,6 +508,7 @@ function setView(view, persist = true) {
     $(`${name}Tab`).className = `tab${selected ? ' active' : ''}`;
   }
   updateLayout();
+  if (view !== 'cases' && state.healthSequence === 0) loadHealth();
   if (persist && window.history?.replaceState) {
     if (view === 'search') persistSearch(state.pages.search.params);
     else if (view === 'cases') persistCaseLocation();
@@ -591,6 +592,7 @@ function clearCaseDetail() {
 async function loadCases(append = false) {
   const page = state.pages.cases, sequence = ++page.sequence;
   if (append && page.nextOffset == null) return;
+  const previousItems = page.items, previousNextOffset = page.nextOffset;
   if (!append) { page.items = []; page.nextOffset = null; $('casesList').replaceChildren(); }
   const params = new URLSearchParams(page.params);
   params.set('offset', String(append ? page.nextOffset : 0));
@@ -618,9 +620,16 @@ async function loadCases(append = false) {
     $('casesMore').hidden = page.nextOffset == null;
   } catch (error) {
     if (sequence !== page.sequence) return;
-    page.items = []; page.nextOffset = null;
-    $('casesList').replaceChildren();
-    $('casesStatus').textContent = `案例读取失败（${error.message}）。可点击“刷新案例”重试，未将失败视为零匹配。`;
+    if (append) {
+      page.items = previousItems; page.nextOffset = previousNextOffset;
+      renderCaseList();
+      $('casesMore').hidden = page.nextOffset == null;
+      $('casesStatus').textContent = `加载更多案例失败（${error.message}）。已保留 ${page.items.length} 个案例，可再次点击“加载更多案例”重试。`;
+    } else {
+      page.items = []; page.nextOffset = null;
+      $('casesList').replaceChildren();
+      $('casesStatus').textContent = `案例读取失败（${error.message}）。可点击“刷新案例”重试，未将失败视为零匹配。`;
+    }
   } finally {
     if (sequence === page.sequence) $('casesMore').disabled = false;
   }

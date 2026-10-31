@@ -56,12 +56,12 @@ def redact_annotation_field(key, value):
     ``authorization=context_only`` is an evidence policy, not a credential.
     """
     clean_key = redact_text(key) if isinstance(key, str) else key
+    field = key.strip() if isinstance(key, str) else ""
+    assignment = _ASSIGNMENT.fullmatch(field + "=value")
+    secret_field = assignment and assignment.end(1) == len(field) + 1
+    if secret_field and not (field.lower() == "authorization" and value == "context_only"):
+        return clean_key, "[REDACTED]"
     if isinstance(value, str):
-        field = key.strip() if isinstance(key, str) else ""
-        assignment = _ASSIGNMENT.fullmatch(field + "=value")
-        secret_field = assignment and assignment.end(1) == len(field) + 1
-        if secret_field and not (field.lower() == "authorization" and value == "context_only"):
-            return clean_key, "[REDACTED]"
         value = redact_text(value)
     return clean_key, value
 

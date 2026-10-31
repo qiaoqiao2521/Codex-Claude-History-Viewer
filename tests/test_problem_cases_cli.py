@@ -137,6 +137,16 @@ class ProblemCasesCliTests(unittest.TestCase):
         self.assertTrue(json.loads(missing.stderr)['error'])
         self.assertFalse(self.directory.exists())
 
+    def test_deep_save_input_fails_with_a_structured_error(self):
+        incoming = self.root / 'deep.json'
+        incoming.write_text(
+            '{"id":"deep-fixture","title":"Deep optional field","custom":'
+            + '[' * 1200 + '0' + ']' * 1200 + '}', encoding='utf-8')
+        failed = self.call('save', '--file', str(incoming), expected=2)
+        self.assertEqual(failed.stdout, '')
+        self.assertEqual(json.loads(failed.stderr)['error'], 'RecursionError')
+        self.assertFalse(self.directory.exists())
+
     def test_corrupt_local_override_is_partial_json_and_a_failed_markdown_export(self):
         self.directory.mkdir()
         (self.directory / 'triple-review-attribution.json').write_text('{broken', encoding='utf-8')

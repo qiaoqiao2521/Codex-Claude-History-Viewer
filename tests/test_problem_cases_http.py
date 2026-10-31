@@ -110,6 +110,20 @@ class ProblemCasesHttpTests(unittest.TestCase):
                          (self.directory / 'follow-evidence.json').read_text())
         self.assertEqual(result['source_verification'], 'references_not_revalidated')
 
+    def test_deep_case_returns_json_error_and_server_keeps_serving(self):
+        # Parsing can succeed while the authored-value traversal exceeds depth.
+        body = ('{"id":"deep","title":"Depth","now":{"judgment":'
+                + '[' * 1500 + '"synthetic"' + ']' * 1500 + '}}').encode()
+        request = urllib.request.Request(self.url + '/api/reuse/case-save', data=body,
+                                         headers={'Content-Type': 'application/json'})
+        with self.assertRaises(urllib.error.HTTPError) as failed:
+            urllib.request.urlopen(request, timeout=5)
+        self.assertEqual(failed.exception.code, 400)
+        self.assertEqual(json.load(failed.exception)['error'], 'case_nesting_invalid')
+        self.assertFalse(self.directory.exists())
+        self.assertEqual(self.request('case-save', self.note)[0], 200)
+        self.assertEqual(self.request('case?id=follow-evidence')[0], 200)
+
     def test_invalid_id_and_unknown_case_do_not_read_arbitrary_files(self):
         self.assertEqual(self.request('case?id=..%2Foutside')[0], 400)
         self.assertEqual(self.request('case?id=no-such-case')[0], 404)
