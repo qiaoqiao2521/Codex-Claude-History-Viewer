@@ -8,6 +8,8 @@ Local Agent CLIs and desktop clients leave useful session history, but raw trans
 
 ## User Intent
 
+- Preserve how requirements, professional corrections and technical approaches evolve across sessions. Agents author explanations and explicit relationships; TraceMesh provides evidence-linked case storage/retrieval/export. Separate task outcome, reusable knowledge and current applicability, and help a later Agent avoid a rejected route. See [problem cases](docs/problem-cases.md).
+
 - Find past Agent sessions, commands, patches, decisions, and discussions quickly.
 - Provide explicit resume commands for a selected native provider session when available. The user can execute them through their selected native CLI or choose CM for supervised adoption; TaskHub is not a prerequisite. Native conversation context and verified SpecMesh project files are complementary layers.
 - See the practical value of a session: what changed, what was tested, where it failed, and whether the request converged.
@@ -44,6 +46,8 @@ The stable `v1.2.0` Linux release delivers the public read-only reader, revision
 Linux delivery is complete (5/5). Release source is `eb99792dadc46ca2b352be8b56ea16daa2138c6c`; the published archive, local launcher and actual test process identities were verified on 2026-09-15. The process is now stopped; this dated observation is not continuous runtime monitoring. See [release evidence](plans/bounded-delivery/progress.md). Windows/WSL and live model/CM execution are outside this release acceptance. The historical M3 independent-user trial was not performed; the user cancelled it on 2026-10-01. It is no longer a pending task or release gate.
 
 ## Current Priority
+
+2026-10-31：[问题案例首版](plans/problem-cases-20261031/task_plan.md) 源码验收完成。三路反馈归因案例提供“现在怎样判断／为什么改变／下次怎样做”的共享 CLI/HTTP/Web 入口；一次未继承本对话的 Agent 受控迁移找到了后续纠正，并先核材料与检索权限。776 项 Python（775 通过、1 可选测试跳过）、9 套 JavaScript 及隔离浏览器通过；详见[范围与证据](plans/problem-cases-20261031/progress.md)。旧历史检索 5/5 不代表整个知识产品目标完成；没有自动语义裁决、全量知识抽取或完整 AGY Boost 模型，现有运行服务和安装包未替换。
 
 2026-10-31：[历史证据可靠性](plans/evidence-reliability-20261031/task_plan.md) 源码验收完成。针对用户提供的 `17b4786` 审查，修复备份保留、跨出口脱敏与请求边界，统一 Web 解析版本、录制身份和搜索修订，并验证长会话定位／全文／Clear。732 项 Python（731 通过、1 可选跨仓测试跳过）、全部 JavaScript 套件和 1000 条合成消息的隔离浏览器通过；详见[状态与边界](plans/evidence-reliability-20261031/progress.md)。未替换安装或发布发行版，真实私有长会话未现场复测。
 

@@ -253,12 +253,13 @@ class SourceBackend:
 
 
 class Handler(SimpleHTTPRequestHandler):
-    def __init__(self, *args, directory=None, source_backends=None, wsl_distro=None, runtime_system="windows", audit_config=None, demo=False, material_dir=None, **kwargs):
+    def __init__(self, *args, directory=None, source_backends=None, wsl_distro=None, runtime_system="windows", audit_config=None, demo=False, material_dir=None, case_dir=None, **kwargs):
         self._source_backends = source_backends or {}
         self._wsl_distro = wsl_distro
         self._runtime_system = str(runtime_system or "windows").strip() or "windows"
         self._audit_config = audit_config or {}
         self._material_dir = material_dir
+        self._case_dir = case_dir if case_dir is not None or not demo else Path(__file__).resolve().parent / 'demo-isolated' / 'problem-cases'
         self._demo = bool(demo)
         super().__init__(*args, directory=directory, **kwargs)
 
@@ -361,6 +362,15 @@ class Handler(SimpleHTTPRequestHandler):
         return (self.headers.get('Content-Type', '').split(';')[0].strip().lower() == 'application/json'
                 and (not origin or origin in ('http://' + host, 'https://' + host))
                 and self.headers.get('Sec-Fetch-Site', '').lower() != 'cross-site')
+
+    def _loopback_request(self):
+        try:
+            peer = ip_address(self.client_address[0])
+            peer = getattr(peer, 'ipv4_mapped', None) or peer
+            host = urlparse('http://' + self.headers.get('Host', '')).hostname
+            return peer.is_loopback and host in ('localhost', '127.0.0.1', '::1')
+        except (AttributeError, ValueError, IndexError):
+            return False
 
     def do_GET(self):
         parsed = urlparse(self.path)
@@ -568,6 +578,20 @@ class Handler(SimpleHTTPRequestHandler):
         params = parse_qs(parsed.query, keep_blank_values=True)
         value = lambda key, default=None: params.get(key, [default])[0]
         endpoint = parsed.path.rsplit('/', 1)[-1]
+        if endpoint in ('cases', 'case'):
+            from history_core.problem_cases import list_cases, get_case
+            try:
+                directory = getattr(self, '_case_dir', None)
+                if endpoint == 'case':
+                    result = get_case(directory, value('id', ''))
+                else:
+                    result = list_cases(directory, query=value('q', ''), project=value('project'),
+                                        offset=int(value('offset', 0)), limit=int(value('limit', 20)))
+                return self.send_json(result)
+            except (ValueError, OSError) as exc:
+                code = reuse.error_code(exc)
+                return self.send_json({'error': code},
+                    status=404 if code in ('case_not_found', 'source_not_found') else 400)
         if endpoint == 'health':
             return self.send_json(health(self._source_backends, demo=self._demo,
                 system=self._runtime_system, version=Path(__file__).with_name('VERSION').read_text().strip()))
@@ -630,6 +654,11 @@ class Handler(SimpleHTTPRequestHandler):
         if not isinstance(data,dict): return self.send_json({'error':'invalid_request'},status=400)
         endpoint=parsed.path.rsplit('/',1)[-1]
         try:
+            if endpoint == 'case-save':
+                if not self._loopback_request() or not self._same_origin_json():
+                    return self.send_json({'error': 'case_local_request_required'}, status=403)
+                from history_core.problem_cases import save_case
+                return self.send_json(save_case(getattr(self, '_case_dir', None), data))
             if endpoint == 'refresh':
                 backend=self._source_backends.get((data.get('system'),data.get('source')))
                 if backend is None: raise ValueError('source_unavailable')
@@ -638,14 +667,7 @@ class Handler(SimpleHTTPRequestHandler):
             if endpoint in ('material-preview', 'material-export'):
                 from history_core.materials import preview_material, export_material
                 # JSON + same-origin checks prevent drive-by local filesystem writes.
-                host = self.headers.get('Host', '')
-                try:
-                    peer = ip_address(self.client_address[0])
-                    peer = getattr(peer, 'ipv4_mapped', None) or peer
-                    local_peer = peer.is_loopback
-                except (AttributeError, ValueError, IndexError):
-                    local_peer = False
-                if not local_peer or urlparse('http://' + host).hostname not in ('localhost', '127.0.0.1', '::1'):
+                if not self._loopback_request():
                     return self.send_json({'error': 'material_loopback_required'}, status=403)
                 if not self._same_origin_json():
                     return self.send_json({'error': 'material_same_origin_required'}, status=403)
@@ -972,6 +994,7 @@ def main():
     parser = argparse.ArgumentParser(description="Local Agent CLI history viewer")
     parser.add_argument("--version", action="version", version=Path(__file__).with_name("VERSION").read_text().strip())
     parser.add_argument("--material-dir", help="Explicit local Markdown material inbox; disabled by default")
+    parser.add_argument("--case-dir", help="Editable local problem-case JSON directory; defaults to the user data directory")
     parser.add_argument("--demo", action="store_true", help="Use packaged synthetic data only; disable private source discovery")
     parser.add_argument("--no-wsl", action="store_true", help="Do not discover or start WSL sources")
     parser.add_argument("--codex-dir", default=os.path.expanduser("~/.codex"))
@@ -1023,6 +1046,8 @@ def main():
     data_dir = Path(args.data_dir).expanduser() if args.data_dir else Path(__file__).resolve().parent
     if args.demo:
         data_dir = data_dir / 'demo-isolated'
+        if args.case_dir is None:
+            args.case_dir = str(data_dir / 'problem-cases')
     data_dir.mkdir(parents=True, exist_ok=True)
     runtime_system = detect_runtime_system()
     source_backends = {}
@@ -1177,6 +1202,7 @@ def main():
             audit_config=audit_config,
             demo=args.demo,
             material_dir=args.material_dir,
+            case_dir=args.case_dir,
             **inner_kwargs,
         )
 

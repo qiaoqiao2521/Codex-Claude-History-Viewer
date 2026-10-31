@@ -13,6 +13,7 @@ Formerly **Codex & Claude History Viewer**. AgentTraceMesh focuses on local Agen
 Local-first, dependency-free web viewer for **Codex CLI**, **Claude Code**, **CodeBuddy (cbc)**, **Gemini CLI**, **pi / Prime Agent**, **GitHub Copilot**, **ZCode**, **AGY CLI / Antigravity**, **OpenCode**, **OpenClaw**, and **Hermes** session history. Format-specific limits are shown explicitly.
 
 - Start with a project, then read conversations across Agent sources in one place
+- Retrieve editable [problem cases](docs/problem-cases.md): current judgment, corrections and next-task methods, with attributed evidence and explicit unknowns
 - Expand related-title groups without losing conversations; open revision-bound key-message hints for requests, proposals, failures and verification mentions
 - Adjust themes, text size, message visibility and source refresh in Settings
 - Search across sources by keyword, project and date; open matching messages with revision checks

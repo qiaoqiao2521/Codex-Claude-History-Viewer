@@ -48,6 +48,10 @@ API requests validate Host against the listening port and local destination. Sta
 
 Codex and Claude parsers tag explicit native Skill requests, Learning context injection and standalone Agent declarations. Tags stay in existing message metadata. The [marker reader](trace-markers.md) returns bounded revision-bound locators without hidden bodies or a new database. Trigger evidence does not evaluate benefit; calling Agents own later interpretation and skill changes in their repositories.
 
+### Authored problem cases
+
+`history_core/problem_cases.py` reads and saves editable JSON annotations in a local case directory, with a versioned public example under `history_core/case_examples`. It reuses the existing secret masker and evidence locators; Markdown is rendered from the same object for CLI, HTTP and Web. Case queries do not initialize history providers. Authors supply interpretations, contribution attribution, applicability and explicit replacement relations; the service does not infer them or establish current verification. No additional database or model service is involved. See [workflow and API](problem-cases.md).
+
 ### Audit layer
 
 `audit/extractor.py` normalizes transcript events and produces evidence-backed `AuditPayload` objects. Classification and scoring remain deterministic. `audit/ai_audit.py` and `audit/llm_client.py` provide opt-in semantic interpretation from compact payloads; the raw transcript is not the default AI input.

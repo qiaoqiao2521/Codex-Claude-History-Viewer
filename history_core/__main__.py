@@ -17,8 +17,52 @@ def _message_window(value):
     return {'message_index': int(parts[0]), 'text_offset': int(parts[1]) if len(parts) == 2 else 0}
 
 
+def _cases_main(argv):
+    parser = argparse.ArgumentParser(
+        prog='python3 -m history_core cases',
+        description='Read and save authored local problem cases without opening conversation sources.')
+    parser.add_argument('--directory', type=Path, help='Editable local case directory')
+    commands = parser.add_subparsers(dest='command', required=True)
+    listing = commands.add_parser('list')
+    listing.add_argument('--query', default='')
+    listing.add_argument('--project', default=None)
+    listing.add_argument('--offset', type=int, default=0)
+    listing.add_argument('--limit', type=int, default=20)
+    showing = commands.add_parser('show')
+    showing.add_argument('case_id')
+    showing.add_argument('--format', choices=('json', 'markdown'), default='json')
+    saving = commands.add_parser('save')
+    saving.add_argument('--file', type=Path, required=True, help='Explicit JSON case input')
+    args = parser.parse_args(argv)
+    from .problem_cases import get_case, list_cases, save_case
+    try:
+        if args.command == 'list':
+            result = list_cases(args.directory, query=args.query, project=args.project,
+                                offset=args.offset, limit=args.limit)
+        elif args.command == 'show':
+            result = get_case(args.directory, args.case_id)
+        else:
+            data = json.loads(args.file.read_text(encoding='utf-8'))
+            result = save_case(args.directory, data)
+        if args.command == 'show' and args.format == 'markdown':
+            if result.get('case') is None:
+                print(json.dumps({**result, 'error': 'case_unavailable'}, ensure_ascii=False),
+                      file=sys.stderr)
+                return 2
+            sys.stdout.write(result['markdown'])
+        else:
+            print(json.dumps(result, ensure_ascii=False))
+        return 0
+    except (ValueError, OSError, TypeError, KeyError) as exc:
+        print(json.dumps({'error': type(exc).__name__, 'detail': str(exc)},
+                         ensure_ascii=False), file=sys.stderr)
+        return 2
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == 'cases':
+        return _cases_main(argv[1:])
     if argv and argv[0] == "activity":
         from .activity import main as activity_main
         try:
@@ -26,7 +70,9 @@ def main(argv=None):
         except Exception as exc:
             print(json.dumps({"error": type(exc).__name__, "detail": str(exc)}, ensure_ascii=False), file=sys.stderr)
             return 2
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog='Local cases do not require a source: python3 -m history_core cases --help')
     parser.add_argument("--source", type=canonical_source, choices=SOURCES, required=True)
     parser.add_argument("--source-path", type=Path, required=True, help="Explicit sessions directory or native SQLite file")
     parser.add_argument("--data-dir", type=Path, help="Required separate cache directory for JSONL sources")

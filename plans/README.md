@@ -1,5 +1,7 @@
 # Work index
 
+- **源码验收完成：问题案例与专业纠偏首版**：[计划](problem-cases-20261031/task_plan.md) / [状态](problem-cases-20261031/progress.md)。Agent 编写三视图解释，TraceMesh 提供同源读查存取；一次独立受控迁移避开了已否决路线，生产及其它案例效果仍待验证。
+
 - **源码验收完成：历史证据可靠性**：[计划](evidence-reliability-20261031/task_plan.md) / [状态](evidence-reliability-20261031/progress.md)。备份保留、旧出口脱敏、请求边界、共享索引规则及长会话交互；安装、发行与真实私有长会话未复测。
 
 - **已完成：工具借鉴与知识收尾**：[计划](tool-knowledge-reuse-20261008/task_plan.md) / [状态](tool-knowledge-reuse-20261008/progress.md)。结构化结果、工具证据候选、直接消息展开、技能/插件日志标记与知识原页读回。2026-10-10 复查交付进度见状态页。
